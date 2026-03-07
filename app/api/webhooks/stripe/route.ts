@@ -1,7 +1,8 @@
 // app/api/webhooks/stripe/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { createServerClient } from "@supabase/ssr";
+import { createServiceClient } from "@/lib/supabase/service";
+import { sendPurchaseConfirmation, PurchaseEmailItem } from "@/lib/email/sendPurchaseConfirmation";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-02-25.clover" as any,
@@ -11,24 +12,9 @@ export const runtime = "nodejs";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
-function createServiceClient() {
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { cookies: { getAll: () => [], setAll: () => {} } }
-  );
-}
-
-
-
 export async function POST(req: NextRequest) {
   const body = await req.text();
   const signature = req.headers.get("stripe-signature");
-
-  // TEMP DEBUG — remove after fix
-  console.log("webhookSecret loaded:", webhookSecret ? `${webhookSecret.slice(0, 10)}...` : "MISSING");
-  console.log("signature present:", !!signature);
-
 
   if (!signature) {
     return NextResponse.json({ error: "Missing signature" }, { status: 400 });
@@ -167,6 +153,94 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         .update({ is_published: false })
         .eq("id", item.beatId);
     }
+  }
+
+  // 4. Resolve recipient email (guest or registered user)
+  let recipientEmail = guestEmail ?? null;
+  if (!recipientEmail && userId) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("id", userId)
+      .maybeSingle();
+    recipientEmail = profile?.email ?? null;
+  }
+
+  // 5. Generate guest download token if no user account
+  let guestDownloadToken: string | null = null;
+  if (!userId && recipientEmail) {
+    try {
+      const token = crypto.randomUUID() + "-" + crypto.randomUUID();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      const { error: tokenError } = await supabase
+        .from("guest_download_tokens")
+        .insert({
+          token,
+          order_id: orderId,
+          expires_at: expiresAt.toISOString(),
+        });
+
+      if (tokenError) {
+        console.error("Failed to create guest download token:", tokenError.message);
+      } else {
+        guestDownloadToken = token;
+      }
+    } catch (err) {
+      console.error("Unexpected error creating guest download token:", err);
+    }
+  }
+
+  // 6. Send purchase confirmation email
+  if (recipientEmail) {
+    const emailItems: PurchaseEmailItem[] = await Promise.all(
+      items.map(async (item) => {
+        if (item.type === "beat" && item.beatId) {
+          const { data: beat } = await supabase
+            .from("beats")
+            .select("title")
+            .eq("id", item.beatId)
+            .maybeSingle();
+          return {
+            title: beat?.title ?? "Beat",
+            licenseType: item.licenseType,
+            pricePaid: item.pricePaid,
+          };
+        } else if (item.type === "pack" && item.packId) {
+          const { data: pack } = await supabase
+            .from("packs")
+            .select("title")
+            .eq("id", item.packId)
+            .maybeSingle();
+          return {
+            title: pack?.title ?? "Pack",
+            licenseType: item.licenseType,
+            pricePaid: item.pricePaid,
+          };
+        }
+        return {
+          title: "Item",
+          licenseType: item.licenseType,
+          pricePaid: item.pricePaid,
+        };
+      })
+    );
+
+    try {
+      await sendPurchaseConfirmation({
+        toEmail: recipientEmail,
+        orderId,
+        items: emailItems,
+        totalAmount,
+        guestDownloadToken: guestDownloadToken ?? undefined,
+      });
+      console.log(`📧 Confirmation email sent to ${recipientEmail}`);
+    } catch (err) {
+      console.error("Failed to send confirmation email:", err);
+    }
+  } else {
+    console.warn(`⚠️ No recipient email for order ${orderId} — skipping confirmation email`);
   }
 
   console.log(

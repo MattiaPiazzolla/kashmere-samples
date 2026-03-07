@@ -1,5 +1,4 @@
 // lib/email/sendPurchaseConfirmation.ts
-
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -15,6 +14,7 @@ export type SendPurchaseConfirmationParams = {
   orderId: string;
   items: PurchaseEmailItem[];
   totalAmount: number;
+  guestDownloadToken?: string;
 };
 
 export async function sendPurchaseConfirmation({
@@ -22,8 +22,10 @@ export async function sendPurchaseConfirmation({
   orderId,
   items,
   totalAmount,
+  guestDownloadToken,
 }: SendPurchaseConfirmationParams): Promise<void> {
   const fromAddress = `${process.env.RESEND_FROM_NAME} <${process.env.RESEND_FROM_EMAIL}>`;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
   const itemRows = items
     .map(
@@ -42,6 +44,39 @@ export async function sendPurchaseConfirmation({
     `
     )
     .join("");
+
+  // CTA block — guest gets direct download link, registered user gets library link
+  const ctaBlock = guestDownloadToken
+    ? `
+      <div style="margin-top: 40px; padding: 24px; background-color: #0a0a0a; border-radius: 8px; border: 1px solid #222; text-align: center;">
+        <p style="margin: 0 0 8px; color: #ffffff; font-size: 15px; font-weight: bold;">
+          Your files are ready
+        </p>
+        <p style="margin: 0 0 20px; color: #aaa; font-size: 13px;">
+          This link expires in 7 days. No account required.
+        </p>
+        <a href="${siteUrl}/download/${guestDownloadToken}"
+          style="display: inline-block; background-color: #ffffff; color: #000000; padding: 12px 28px; border-radius: 6px; font-size: 14px; font-weight: bold; text-decoration: none; letter-spacing: 1px; text-transform: uppercase;">
+          Download Your Files
+        </a>
+        <p style="margin: 20px 0 0; color: #555; font-size: 12px;">
+          Want permanent access? 
+          <a href="${siteUrl}/sign-up" style="color: #888;">Create a free account</a> 
+          with this email and your purchases will be waiting in your library.
+        </p>
+      </div>
+    `
+    : `
+      <div style="margin-top: 40px; padding: 24px; background-color: #0a0a0a; border-radius: 8px; border: 1px solid #222; text-align: center;">
+        <p style="margin: 0 0 16px; color: #aaa; font-size: 14px;">
+          Your files are ready to download in your library.
+        </p>
+        <a href="${siteUrl}/library"
+          style="display: inline-block; background-color: #ffffff; color: #000000; padding: 12px 28px; border-radius: 6px; font-size: 14px; font-weight: bold; text-decoration: none; letter-spacing: 1px; text-transform: uppercase;">
+          Go to My Library
+        </a>
+      </div>
+    `;
 
   const html = `
     <!DOCTYPE html>
@@ -108,21 +143,13 @@ export async function sendPurchaseConfirmation({
                       </tr>
                     </table>
 
-                    <!-- Library CTA -->
-                    <div style="margin-top: 40px; padding: 24px; background-color: #0a0a0a; border-radius: 8px; border: 1px solid #222; text-align: center;">
-                      <p style="margin: 0 0 16px; color: #aaa; font-size: 14px;">
-                        Your files are ready to download in your library.
-                      </p>
-                      <a href="${process.env.NEXT_PUBLIC_SITE_URL}/library"
-                        style="display: inline-block; background-color: #ffffff; color: #000000; padding: 12px 28px; border-radius: 6px; font-size: 14px; font-weight: bold; text-decoration: none; letter-spacing: 1px; text-transform: uppercase;">
-                        Go to My Library
-                      </a>
-                    </div>
+                    <!-- CTA -->
+                    ${ctaBlock}
 
                     <!-- License Note -->
                     <p style="margin: 32px 0 0; color: #555; font-size: 12px; line-height: 1.6;">
-                      By completing this purchase you agree to the 
-                      <a href="${process.env.NEXT_PUBLIC_SITE_URL}/licensing" style="color: #888;">KashmereSamples License Terms</a>.
+                      By completing this purchase you agree to the
+                      <a href="${siteUrl}/licensing" style="color: #888;">KashmereSamples License Terms</a>.
                       Royalty Free licenses are non-exclusive. Exclusive licenses grant full buyout rights — Kashmere retains authorship credit.
                     </p>
                   </td>
