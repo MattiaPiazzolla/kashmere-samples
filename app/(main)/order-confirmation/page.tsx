@@ -1,9 +1,11 @@
+export const dynamic = "force-dynamic";
+
 "use client";
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, XCircle, Loader2, ShoppingCart } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 
 type SessionStatus = "loading" | "success" | "cancelled" | "error";
@@ -51,7 +53,6 @@ export default function OrderConfirmationPage() {
         verify();
     }, [sessionId, cancelled, clearCart]);
 
-    // ── Loading ──────────────────────────────────────────────────────────────
     if (status === "loading") {
         return (
             <div className="flex min-h-screen items-center justify-center bg-zinc-950">
@@ -63,7 +64,6 @@ export default function OrderConfirmationPage() {
         );
     }
 
-    // ── Cancelled ────────────────────────────────────────────────────────────
     if (status === "cancelled") {
         return (
             <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4">
@@ -94,7 +94,6 @@ export default function OrderConfirmationPage() {
         );
     }
 
-    // ── Error ────────────────────────────────────────────────────────────────
     if (status === "error") {
         return (
             <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4">
@@ -118,7 +117,6 @@ export default function OrderConfirmationPage() {
         );
     }
 
-    // ── Success ──────────────────────────────────────────────────────────────
     return (
         <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4">
             <div className="flex max-w-md flex-col items-center gap-6 text-center">
