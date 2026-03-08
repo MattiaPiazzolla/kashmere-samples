@@ -129,6 +129,13 @@ export const useCartStore = create<CartState>()(
     {
       name: "kashmere-cart",
       partialize: (state) => ({ items: state.items }),
+      // Strip any persisted items missing pricePaid to avoid runtime crashes
+      merge: (persisted: any, current) => ({
+        ...current,
+        items: (persisted?.items ?? []).filter(
+          (item: any) => typeof item.pricePaid === "number"
+        ),
+      }),
     }
   )
 );

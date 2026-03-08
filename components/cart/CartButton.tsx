@@ -5,12 +5,12 @@ import { ShoppingBag } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 
 export default function CartButton() {
-    const { toggleCart, itemCount } = useCartStore();
+    const { toggleCart, items } = useCartStore();
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => { setMounted(true); }, []);
 
-    const count = mounted ? itemCount() : 0;
+    const count = mounted ? items.length : 0;
 
     return (
         <button

@@ -142,10 +142,27 @@ export default function Navbar() {
                 }
             `}</style>
 
-            <nav className={`sticky top-0 z-40 transition-all duration-300 ${scrolled
-                ? 'bg-neutral-950/95 backdrop-blur-md border-b border-neutral-800/80 shadow-[0_1px_20px_rgba(0,0,0,0.4)]'
-                : 'bg-neutral-950/80 backdrop-blur border-b border-neutral-800/40'
-                }`}>
+            {/* Gradient underlay — tall multi-stop fade, dissolves on scroll */}
+            <div
+                className="pointer-events-none fixed inset-x-0 top-0 z-30 h-52"
+                style={{
+                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,0.15) 70%, transparent 100%)',
+                    opacity: scrolled ? 0 : 1,
+                    transition: 'opacity 0.7s ease',
+                }}
+            />
+
+            {/* Nav — no border at any state */}
+            <nav
+                className="sticky top-0 z-40"
+                style={{
+                    background: scrolled ? 'rgba(10,10,10,0.95)' : 'transparent',
+                    backdropFilter: scrolled ? 'blur(12px)' : 'none',
+                    WebkitBackdropFilter: scrolled ? 'blur(12px)' : 'none',
+                    boxShadow: scrolled ? '0 1px 24px rgba(0,0,0,0.5)' : 'none',
+                    transition: 'background 0.6s ease, box-shadow 0.6s ease',
+                }}
+            >
                 <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
 
                     {/* LOGO */}
@@ -263,9 +280,9 @@ export default function Navbar() {
                     </button>
                 </div>
 
-                {/* MOBILE MENU */}
+                {/* MOBILE MENU — no top border */}
                 {menuOpen && (
-                    <div className="mobile-menu md:hidden border-t border-neutral-800/60 bg-neutral-950/98 backdrop-blur-md px-6 py-5 flex flex-col gap-1">
+                    <div className="mobile-menu md:hidden bg-neutral-950/98 backdrop-blur-md px-6 py-5 flex flex-col gap-1">
                         {NAV_LINKS.map(({ label, href }) => (
                             <Link
                                 key={href}
@@ -277,7 +294,7 @@ export default function Navbar() {
                             </Link>
                         ))}
 
-                        <div className="border-t border-neutral-800/60 mt-3 pt-4 flex flex-col gap-3">
+                        <div className="mt-3 pt-4 flex flex-col gap-3">
                             {user ? (
                                 <>
                                     <div className="flex items-center gap-3 mb-1">

@@ -45,7 +45,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ received: true });
 }
 
-// Matches the shape cartMeta.push() builds in the checkout route
 type CartMetaItem = {
   type: "beat" | "pack";
   beatId?: string;
@@ -61,7 +60,6 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const stripeSessionId = session.id;
   const totalAmount = (session.amount_total ?? 0) / 100;
 
-  // Checkout route stores items under "cart" key
   const rawCart = session.metadata?.cart;
   if (!rawCart) {
     console.warn("No cart metadata on session:", stripeSessionId);
@@ -148,12 +146,21 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
     // 3. Exclusive beat — unpublish after confirmed purchase
     if (isBeat && item.licenseType === "EXCLUSIVE" && item.beatId) {
-      await supabase
+      const { error: unpublishError } = await supabase
         .from("beats")
         .update({ is_published: false })
         .eq("id", item.beatId);
+
+      if (unpublishError) {
+        console.error(
+          `⚠️ Failed to unpublish exclusive beat ${item.beatId}:`,
+          unpublishError.message
+        );
+      } else {
+        console.log(`🔒 Exclusive beat ${item.beatId} unpublished after purchase`);
+      }
     }
-  }
+  } // ← end of for loop
 
   // 4. Resolve recipient email (guest or registered user)
   let recipientEmail = guestEmail ?? null;
@@ -243,7 +250,5 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     console.warn(`⚠️ No recipient email for order ${orderId} — skipping confirmation email`);
   }
 
-  console.log(
-    `✅ Order ${orderId} created — ${items.length} item(s) — ${guestEmail ?? userId}`
-  );
+  console.log(`✅ Order ${orderId} created — ${items.length} item(s) — ${guestEmail ?? userId}`);
 }

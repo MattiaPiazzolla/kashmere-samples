@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Play, Pause, ShoppingCart } from "lucide-react";
+import Link from "next/link";
 import { useAudioStore } from "@/store/audioStore";
 import BeatPurchaseModal, { BeatModalData } from "./BeatPurchaseModal";
+import ShareButton from "./ShareButton";
 import { useCartStore } from "@/store/cartStore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -54,27 +56,23 @@ function toTrack(beat: BeatCardData, base: string) {
 // ─── BeatCard ─────────────────────────────────────────────────────────────────
 
 export default function BeatCard({ beat, allBeats, previewBaseUrl }: Props) {
-    const { currentTrack, isPlaying, play, pause, setQueue } = useAudioStore();
+    const { currentTrack, isPlaying, pause, resume, setQueue } = useAudioStore();
     const { hasItem } = useCartStore();
 
     const [modalOpen, setModalOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
 
-    useEffect(() => {
-        setMounted(true);
-    }, []);
+    useEffect(() => { setMounted(true); }, []);
 
     const isCurrentTrack = currentTrack?.id === beat.id;
     const isThisPlaying = isCurrentTrack && isPlaying;
     const previewUrl = buildPreviewUrl(previewBaseUrl, beat.filename_preview);
-
-    // Hydration-safe — always false on server
     const inCart = mounted ? hasItem(beat.id) : false;
 
     const handlePlayPause = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (isCurrentTrack) {
-            isPlaying ? pause() : play(currentTrack!);
+            isPlaying ? pause() : resume();
             return;
         }
         const queue = allBeats.map((b) => toTrack(b, previewBaseUrl));
@@ -128,6 +126,7 @@ export default function BeatCard({ beat, allBeats, previewBaseUrl }: Props) {
     return (
         <>
             <div className="group relative flex flex-col rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden transition hover:border-zinc-600">
+
                 {/* Cover */}
                 <div className="relative aspect-square w-full overflow-hidden bg-zinc-800">
                     {beat.cover_image_url ? (
@@ -163,6 +162,15 @@ export default function BeatCard({ beat, allBeats, previewBaseUrl }: Props) {
                         </div>
                     </button>
 
+                    {/* Detail page link — bottom-right corner of cover */}
+                    <Link
+                        href={`/beats/${beat.slug}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-sm text-white text-[10px] font-semibold hover:bg-black/90"
+                    >
+                        View →
+                    </Link>
+
                     {/* Playing indicator bar */}
                     {isThisPlaying && (
                         <div className="absolute bottom-0 left-0 right-0 flex h-1 gap-0.5 overflow-hidden">
@@ -192,9 +200,15 @@ export default function BeatCard({ beat, allBeats, previewBaseUrl }: Props) {
 
                 {/* Info */}
                 <div className="flex flex-1 flex-col gap-2 p-4">
-                    <h3 className="truncate text-sm font-semibold text-white">
+
+                    {/* Title — links to detail page */}
+                    <Link
+                        href={`/beats/${beat.slug}`}
+                        className="truncate text-sm font-semibold text-white hover:text-amber-400 hover:underline underline-offset-2 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         {beat.title}
-                    </h3>
+                    </Link>
 
                     <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500">
                         <span className="capitalize">
@@ -204,20 +218,24 @@ export default function BeatCard({ beat, allBeats, previewBaseUrl }: Props) {
                         {beat.key && <span>· {beat.key}</span>}
                     </div>
 
-                    {/* Price + buy button */}
+                    {/* Price + share + buy */}
                     <div className="mt-auto flex items-center justify-between pt-2">
                         {displayPrice()}
 
-                        <button
-                            onClick={() => setModalOpen(true)}
-                            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${inCart
-                                    ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-                                    : "bg-amber-500 text-black hover:bg-amber-400"
-                                }`}
-                        >
-                            <ShoppingCart size={12} />
-                            {inCart ? "In Cart" : "Buy"}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <ShareButton title={beat.title} slug={beat.slug} />
+
+                            <button
+                                onClick={() => setModalOpen(true)}
+                                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${inCart
+                                        ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                                        : "bg-amber-500 text-black hover:bg-amber-400"
+                                    }`}
+                            >
+                                <ShoppingCart size={12} />
+                                {inCart ? "In Cart" : "Buy"}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

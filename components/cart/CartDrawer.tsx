@@ -64,7 +64,7 @@ function CartRow({ item }: { item: CartItem }) {
                     <Trash2 size={12} />
                 </button>
                 <span className="text-[13px] font-semibold text-white tabular-nums">
-                    ${item.pricePaid.toFixed(2)}
+                    ${(item.pricePaid ?? 0).toFixed(2)}
                 </span>
             </div>
         </div>

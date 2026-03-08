@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Play, Pause, ShoppingCart } from "lucide-react";
+import Link from "next/link";
 import { useAudioStore } from "@/store/audioStore";
 import { useCartStore } from "@/store/cartStore";
 import BeatPurchaseModal, { BeatModalData } from "./BeatPurchaseModal";
+import ShareButton from "./ShareButton";
 import type { BeatCardData } from "./BeatCard";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -83,27 +85,23 @@ function PriceDisplay({ beat }: { beat: BeatCardData }) {
 // ─── BeatRow ──────────────────────────────────────────────────────────────────
 
 export default function BeatRow({ beat, allBeats, previewBaseUrl, index }: Props) {
-    const { currentTrack, isPlaying, play, pause, setQueue } = useAudioStore();
+    const { currentTrack, isPlaying, pause, resume, setQueue } = useAudioStore();
     const { hasItem } = useCartStore();
 
     const [modalOpen, setModalOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
 
-    useEffect(() => {
-        setMounted(true);
-    }, []);
+    useEffect(() => { setMounted(true); }, []);
 
     const isCurrentTrack = currentTrack?.id === beat.id;
     const isThisPlaying = isCurrentTrack && isPlaying;
     const previewUrl = buildPreviewUrl(previewBaseUrl, beat.filename_preview);
-
-    // Hydration-safe — always false on server
     const inCart = mounted ? hasItem(beat.id) : false;
 
     const handlePlayPause = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (isCurrentTrack) {
-            isPlaying ? pause() : play(currentTrack!);
+            isPlaying ? pause() : resume();
             return;
         }
         const queue = allBeats
@@ -184,14 +182,16 @@ export default function BeatRow({ beat, allBeats, previewBaseUrl, index }: Props
                     )}
                 </div>
 
-                {/* Title + meta */}
+                {/* Title + meta — clicking title navigates to detail page */}
                 <div className="flex min-w-0 flex-1 flex-col">
-                    <span
-                        className={`truncate text-sm font-medium ${isCurrentTrack ? "text-amber-400" : "text-white"
+                    <Link
+                        href={`/beats/${beat.slug}`}
+                        className={`truncate text-sm font-medium hover:underline underline-offset-2 transition-colors ${isCurrentTrack ? "text-amber-400" : "text-white hover:text-amber-400"
                             }`}
+                        onClick={(e) => e.stopPropagation()}
                     >
                         {beat.title}
-                    </span>
+                    </Link>
                     <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 mt-0.5">
                         <span className="capitalize">
                             {beat.type.replace("_", " ").toLowerCase()}
@@ -218,6 +218,9 @@ export default function BeatRow({ beat, allBeats, previewBaseUrl, index }: Props
                 <div className="hidden sm:flex flex-shrink-0 w-28 justify-end">
                     <PriceDisplay beat={beat} />
                 </div>
+
+                {/* Share button */}
+                <ShareButton title={beat.title} slug={beat.slug} />
 
                 {/* Buy button */}
                 <button
