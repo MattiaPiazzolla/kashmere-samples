@@ -9,8 +9,8 @@ import SampleModal from "./SampleModal";
 export interface Sample {
     id: string;
     title: string;
-    type: string;
-    subtype: string;
+    type: "LOOP" | "STEM" | "ONE_SHOT";
+    subtype: "DRUMS" | "MELODY" | "BASS" | "FX" | "OTHER";
     bpm: number | null;
     key: string | null;
     duration_sec: number | null;
