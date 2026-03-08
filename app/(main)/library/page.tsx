@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import LibraryClient from "./LibraryClient";
 
+type LicenseType = "ROYALTY_FREE" | "EXCLUSIVE";
+
 type BeatRow = {
   id: string;
   title: string;
@@ -18,7 +20,7 @@ type PackRow = {
 
 type RawOrderItem = {
   id: string;
-  license_type: string;
+  license_type: string | null;
   price_paid: number;
   beat_id: string | null;
   pack_id: string | null;
@@ -34,17 +36,19 @@ type RawOrder = {
   order_items: RawOrderItem[] | null;
 };
 
+function normalizeLicenseType(value: string | null): LicenseType {
+  return value === "EXCLUSIVE" ? "EXCLUSIVE" : "ROYALTY_FREE";
+}
+
 export default async function LibraryPage() {
   const supabase = await createClient();
 
-  // Auth check
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/");
 
-  // Fetch all paid orders for this user, newest first
   const { data, error } = await supabase
     .from("orders")
     .select(`
@@ -76,6 +80,7 @@ export default async function LibraryPage() {
     ...order,
     order_items: (order.order_items ?? []).map((item) => ({
       ...item,
+      license_type: normalizeLicenseType(item.license_type),
       beats: Array.isArray(item.beats) ? (item.beats[0] ?? null) : item.beats ?? null,
       packs: Array.isArray(item.packs) ? (item.packs[0] ?? null) : item.packs ?? null,
     })),
