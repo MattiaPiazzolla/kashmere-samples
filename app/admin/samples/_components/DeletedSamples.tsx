@@ -1,3 +1,4 @@
+// app/admin/samples/_components/DeletedSamples.tsx
 "use client";
 
 import { useState, useTransition } from "react";
@@ -5,21 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import SampleRow from "./SampleRow";
 import SampleModal from "./SampleModal";
-
-interface Sample {
-    id: string;
-    title: string;
-    type: string;
-    subtype: string;
-    bpm: number | null;
-    key: string | null;
-    duration_sec: number | null;
-    price_individual: number | null;
-    is_published: boolean;
-    is_deleted: boolean;
-    has_midi: boolean;
-    packs: { title: string } | null;
-}
+import type { Sample } from "./SamplesTable";
 
 interface Pack {
     id: string;
@@ -75,6 +62,7 @@ export default function DeletedSamples({
                                 <SampleRow
                                     key={sample.id}
                                     sample={sample}
+                                    allSamples={samples}
                                     onEdit={(s) => {
                                         setEditingSample(s);
                                         setModalOpen(true);

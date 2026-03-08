@@ -1,3 +1,4 @@
+// app/admin/samples/_components/SampleRow.tsx
 "use client";
 
 import { useState } from "react";
@@ -16,8 +17,9 @@ interface SampleRowProps {
 }
 
 function toTrack(s: Sample): PlayerTrack {
-    const firstPackRaw = s.sample_packs?.[0]?.packs ?? null
-    const firstPack = Array.isArray(firstPackRaw) ? firstPackRaw[0] : firstPackRaw
+    const firstPackRaw = s.sample_packs?.[0]?.packs ?? null;
+    const firstPack = Array.isArray(firstPackRaw) ? firstPackRaw[0] : firstPackRaw;
+
     return {
         id: s.id,
         title: s.title,
@@ -28,7 +30,7 @@ function toTrack(s: Sample): PlayerTrack {
         key: s.key,
         type: s.type,
         licenseType: "ROYALTY_FREE",
-    }
+    };
 }
 
 export default function SampleRow({
@@ -46,12 +48,14 @@ export default function SampleRow({
     const isThisPlaying = isThisTrack && isPlaying;
 
     function handlePlay() {
-        if (!sample.filename_preview) return
+        if (!sample.filename_preview) return;
+
         if (isThisTrack) {
-            isPlaying ? pause() : resume()
-            return
+            isPlaying ? pause() : resume();
+            return;
         }
-        play(toTrack(sample), allSamples.map(toTrack))
+
+        play(toTrack(sample), allSamples.map(toTrack));
     }
 
     async function togglePublish() {
@@ -83,13 +87,11 @@ export default function SampleRow({
     }
 
     return (
-        <tr className={`border-b border-zinc-800 hover:bg-zinc-800/40 transition-colors ${isThisTrack ? "bg-zinc-800/30" : ""}`}>
-
-            {/* Title + pack */}
+        <tr
+            className={`border-b border-zinc-800 hover:bg-zinc-800/40 transition-colors ${isThisTrack ? "bg-zinc-800/30" : ""}`}
+        >
             <td className="px-4 py-3">
                 <div className="flex items-center gap-3">
-
-                    {/* Play button */}
                     <button
                         onClick={handlePlay}
                         disabled={!sample.filename_preview}
@@ -116,66 +118,78 @@ export default function SampleRow({
                         <p className="text-sm font-medium text-white">{sample.title}</p>
                         <p className="text-xs text-zinc-500">
                             {(() => {
-                                const raw = sample.sample_packs?.[0]?.packs ?? null
-                                const pack = Array.isArray(raw) ? raw[0] : raw
-                                return pack?.title ?? "No pack"
+                                const raw = sample.sample_packs?.[0]?.packs ?? null;
+                                const pack = Array.isArray(raw) ? raw[0] : raw;
+                                return pack?.title ?? "No pack";
                             })()}
                         </p>
                     </div>
                 </div>
             </td>
 
-            {/* Type / Subtype */}
             <td className="px-4 py-3">
                 <span className="rounded bg-zinc-700 px-2 py-0.5 text-xs text-zinc-300">{sample.type}</span>
                 <span className="ml-1 rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{sample.subtype}</span>
             </td>
 
-            {/* BPM / Key */}
-            <td className="px-4 py-3 text-sm text-zinc-400">{sample.bpm ?? "—"} / {sample.key ?? "—"}</td>
+            <td className="px-4 py-3 text-sm text-zinc-400">
+                {sample.bpm ?? "—"} / {sample.key ?? "—"}
+            </td>
 
-            {/* Duration */}
             <td className="px-4 py-3 text-sm text-zinc-400">{formatDuration(sample.duration_sec)}</td>
 
-            {/* Price */}
             <td className="px-4 py-3 text-sm text-zinc-400">
                 {sample.price_individual != null ? `$${sample.price_individual.toFixed(2)}` : "Pack only"}
             </td>
 
-            {/* MIDI */}
             <td className="px-4 py-3 text-xs text-zinc-500">{sample.has_midi ? "✓" : "—"}</td>
 
-            {/* Status */}
             <td className="px-4 py-3">
                 {!deleted && (
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${sample.is_published ? "bg-green-500/20 text-green-400" : "bg-zinc-700 text-zinc-400"
-                        }`}>
+                    <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${sample.is_published ? "bg-green-500/20 text-green-400" : "bg-zinc-700 text-zinc-400"
+                            }`}
+                    >
                         {sample.is_published ? "Live" : "Draft"}
                     </span>
                 )}
             </td>
 
-            {/* Actions */}
             <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
                     {!deleted ? (
                         <>
-                            <button onClick={togglePublish} disabled={loading} title={sample.is_published ? "Unpublish" : "Publish"}
-                                className="rounded p-1.5 text-zinc-400 hover:bg-zinc-700 hover:text-white transition-colors">
+                            <button
+                                onClick={togglePublish}
+                                disabled={loading}
+                                title={sample.is_published ? "Unpublish" : "Publish"}
+                                className="rounded p-1.5 text-zinc-400 hover:bg-zinc-700 hover:text-white transition-colors"
+                            >
                                 {sample.is_published ? <EyeOff size={14} /> : <Eye size={14} />}
                             </button>
-                            <button onClick={() => onEdit(sample)} title="Edit"
-                                className="rounded p-1.5 text-zinc-400 hover:bg-zinc-700 hover:text-white transition-colors">
+                            <button
+                                onClick={() => onEdit(sample)}
+                                title="Edit"
+                                className="rounded p-1.5 text-zinc-400 hover:bg-zinc-700 hover:text-white transition-colors"
+                            >
                                 <Pencil size={14} />
                             </button>
-                            <button onClick={softDelete} disabled={loading} title="Delete"
-                                className="rounded p-1.5 text-zinc-400 hover:bg-red-500/20 hover:text-red-400 transition-colors">
+                            <button
+                                onClick={softDelete}
+                                disabled={loading}
+                                title="Delete"
+                                className="rounded p-1.5 text-zinc-400 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                            >
                                 <Trash2 size={14} />
                             </button>
                         </>
                     ) : (
-                        <button onClick={restore} disabled={loading} title="Restore"
-                            className="rounded p-1.5 text-zinc-400 hover:bg-zinc-700 hover:text-white transition-colors">
+                        <button
+                            onClick={restore}
+                            disabled={loading}
+                            title="Restore"
+                            className="rounded p-1.5 text-zinc-400 hover:bg-zinc-700 hover:text-white transition-colors"
+                        >
                             <RotateCcw size={14} />
                         </button>
                     )}
