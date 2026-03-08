@@ -2,12 +2,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useAudioStore } from "@/store/audioStore";
-import { useCartStore } from "@/store/cartStore";
-import BeatPurchaseModal, { BeatModalData } from "@/components/beats/BeatPurchaseModal";
 import Link from "next/link";
 import WaveSurfer from "wavesurfer.js";
 import { Play, Pause, Share2, ShoppingCart, Check } from "lucide-react";
+
+import { useAudioStore } from "@/store/audioStore";
+import { useCartStore } from "@/store/cartStore";
+import BeatPurchaseModal, { BeatModalData } from "@/components/beats/BeatPurchaseModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,18 +39,18 @@ interface Props {
 // ─── Share logic ──────────────────────────────────────────────────────────────
 
 async function handleShare(beat: Beat) {
+    if (typeof window === "undefined") return null;
+    if (typeof navigator === "undefined" || typeof navigator.share !== "function") return null;
+
     const url = window.location.href;
     const text = `Check out "${beat.title}" on KashmereSamples`;
 
-    if (navigator.share) {
-        try {
-            await navigator.share({ title: beat.title, text, url });
-            return "shared";
-        } catch {
-            return null;
-        }
+    try {
+        await navigator.share({ title: beat.title, text, url });
+        return "shared";
+    } catch {
+        return null;
     }
-    return null;
 }
 
 function buildTweetUrl(beat: Beat) {
@@ -71,11 +72,14 @@ function ShareButton({ beat }: { beat: Beat }) {
                 setOpen(false);
             }
         }
+
         document.addEventListener("mousedown", onClickOutside);
         return () => document.removeEventListener("mousedown", onClickOutside);
     }, []);
 
     const copyLink = async () => {
+        if (typeof window === "undefined" || typeof navigator === "undefined" || !navigator.clipboard) return;
+
         await navigator.clipboard.writeText(window.location.href);
         setState("copied");
         setTimeout(() => setState("idle"), 2000);
@@ -83,6 +87,8 @@ function ShareButton({ beat }: { beat: Beat }) {
     };
 
     const shareInstagram = async () => {
+        if (typeof window === "undefined" || typeof navigator === "undefined" || !navigator.clipboard) return;
+
         await navigator.clipboard.writeText(window.location.href);
         setState("instagram");
         setTimeout(() => setState("idle"), 3000);
@@ -90,10 +96,11 @@ function ShareButton({ beat }: { beat: Beat }) {
     };
 
     const onMainClick = async () => {
-        if (navigator.share) {
+        if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
             await handleShare(beat);
             return;
         }
+
         setOpen((prev) => !prev);
     };
 
@@ -101,17 +108,17 @@ function ShareButton({ beat }: { beat: Beat }) {
         <div className="relative" ref={ref}>
             <button
                 onClick={onMainClick}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-sm font-medium hover:bg-zinc-700 transition-colors"
+                className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
             >
                 <Share2 size={15} />
                 Share
             </button>
 
             {open && (
-                <div className="absolute right-0 mt-2 w-52 rounded-xl bg-zinc-900 border border-zinc-700 shadow-xl z-50 overflow-hidden">
+                <div className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl">
                     <button
                         onClick={copyLink}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-zinc-800 transition-colors"
+                        className="flex w-full items-center gap-3 px-4 py-3 text-sm text-white transition-colors hover:bg-zinc-800"
                     >
                         <Check size={14} className={state === "copied" ? "text-emerald-400" : "text-zinc-500"} />
                         {state === "copied" ? "Link copied!" : "Copy link"}
@@ -119,10 +126,12 @@ function ShareButton({ beat }: { beat: Beat }) {
 
                     <button
                         onClick={() => {
-                            window.open(buildTweetUrl(beat), "_blank", "noopener,noreferrer");
+                            if (typeof window !== "undefined") {
+                                window.open(buildTweetUrl(beat), "_blank", "noopener,noreferrer");
+                            }
                             setOpen(false);
                         }}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-zinc-800 transition-colors"
+                        className="flex w-full items-center gap-3 px-4 py-3 text-sm text-white transition-colors hover:bg-zinc-800"
                     >
                         <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" className="text-zinc-400">
                             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.742l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
@@ -132,7 +141,7 @@ function ShareButton({ beat }: { beat: Beat }) {
 
                     <button
                         onClick={shareInstagram}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-zinc-800 transition-colors border-t border-zinc-800"
+                        className="flex w-full items-center gap-3 border-t border-zinc-800 px-4 py-3 text-sm text-white transition-colors hover:bg-zinc-800"
                     >
                         <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" className="text-zinc-400">
                             <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
@@ -176,12 +185,15 @@ function Waveform({
         });
 
         let destroyed = false;
+
         ws.on("ready", () => {
             if (!destroyed) onReady(ws.getDuration());
         });
+
         ws.load(url).catch(() => {
             // Swallow AbortError from cleanup destroying mid-load
         });
+
         wsRef.current = ws;
 
         return () => {
@@ -195,6 +207,7 @@ function Waveform({
     useEffect(() => {
         const ws = wsRef.current;
         if (!ws) return;
+
         if (isPlaying) {
             if (!ws.isPlaying()) ws.play();
         } else {
@@ -202,12 +215,7 @@ function Waveform({
         }
     }, [isPlaying]);
 
-    return (
-        <div
-            ref={containerRef}
-            className="w-full rounded-lg overflow-hidden cursor-pointer"
-        />
-    );
+    return <div ref={containerRef} className="w-full cursor-pointer overflow-hidden rounded-lg" />;
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -220,7 +228,9 @@ export default function BeatDetailClient({ beat, packTitle, packSlug }: Props) {
     const [mounted, setMounted] = useState(false);
     const [duration, setDuration] = useState<number | null>(null);
 
-    useEffect(() => { setMounted(true); }, []);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const isCurrentTrack = currentTrack?.id === beat.id;
     const isThisPlaying = isCurrentTrack && isPlaying;
@@ -243,6 +253,7 @@ export default function BeatDetailClient({ beat, packTitle, packSlug }: Props) {
             isThisPlaying ? pause() : resume();
             return;
         }
+
         setQueue([track], 0);
     };
 
@@ -270,11 +281,9 @@ export default function BeatDetailClient({ beat, packTitle, packSlug }: Props) {
     return (
         <>
             <div className="relative">
-
-                {/* CSS backdrop gradient — no canvas, no CORS, works on refresh */}
                 {beat.cover_image_url && (
                     <div
-                        className="pointer-events-none fixed inset-x-0 top-0 h-[600px] z-0 overflow-hidden"
+                        className="pointer-events-none fixed inset-x-0 top-0 z-0 h-[600px] overflow-hidden"
                         style={{
                             maskImage: "linear-gradient(to bottom, black 0%, black 30%, transparent 100%)",
                             WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 30%, transparent 100%)",
@@ -294,34 +303,29 @@ export default function BeatDetailClient({ beat, packTitle, packSlug }: Props) {
                     </div>
                 )}
 
-                <main className="relative z-10 min-h-screen max-w-5xl mx-auto px-6 py-16">
-
-                    {/* Back link */}
+                <main className="relative z-10 mx-auto min-h-screen max-w-5xl px-6 py-16">
                     <Link
                         href="/beats"
-                        className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-white transition-colors mb-10"
+                        className="mb-10 inline-flex items-center gap-2 text-sm text-zinc-500 transition-colors hover:text-white"
                     >
                         ← Back to Beats
                     </Link>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
-
-                        {/* LEFT — Cover */}
-                        <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-zinc-900">
+                    <div className="grid grid-cols-1 items-start gap-12 md:grid-cols-2">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-zinc-900">
                             {beat.cover_image_url ? (
                                 <img
                                     src={beat.cover_image_url}
                                     alt={beat.title}
-                                    className="w-full h-full object-cover"
+                                    className="h-full w-full object-cover"
                                 />
                             ) : (
-                                <div className="w-full h-full flex items-center justify-center text-zinc-600">
+                                <div className="flex h-full w-full items-center justify-center text-zinc-600">
                                     No Cover
                                 </div>
                             )}
 
-                            {/* License badge */}
-                            <div className="absolute top-3 left-3">
+                            <div className="absolute left-3 top-3">
                                 {beat.license_type === "EXCLUSIVE" ? (
                                     <span className="rounded-full bg-amber-500/90 px-3 py-1 text-xs font-bold uppercase tracking-wide text-black">
                                         Exclusive
@@ -334,76 +338,80 @@ export default function BeatDetailClient({ beat, packTitle, packSlug }: Props) {
                             </div>
                         </div>
 
-                        {/* RIGHT — Info */}
                         <div className="flex flex-col gap-6">
-
-                            {/* Pack link */}
                             {packTitle && packSlug && (
                                 <Link
                                     href={`/packs/${packSlug}`}
-                                    className="text-xs text-amber-400 hover:text-amber-300 uppercase tracking-widest font-semibold transition-colors"
+                                    className="text-xs font-semibold uppercase tracking-widest text-amber-400 transition-colors hover:text-amber-300"
                                 >
                                     ↑ {packTitle}
                                 </Link>
                             )}
 
-                            {/* Title */}
-                            <h1 className="text-4xl font-black tracking-tight text-white leading-tight">
+                            <h1 className="text-4xl font-black leading-tight tracking-tight text-white">
                                 {beat.title}
                             </h1>
 
-                            {/* Meta chips */}
                             <div className="flex flex-wrap gap-2">
                                 {beat.type && (
-                                    <span className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs text-zinc-300 capitalize">
+                                    <span className="rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1 text-xs capitalize text-zinc-300">
                                         {beat.type.replace("_", " ").toLowerCase()}
                                     </span>
                                 )}
+
                                 {beat.bpm && (
-                                    <span className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs text-zinc-300">
+                                    <span className="rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1 text-xs text-zinc-300">
                                         {beat.bpm} BPM
                                     </span>
                                 )}
+
                                 {beat.key && (
-                                    <span className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs text-zinc-300">
+                                    <span className="rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1 text-xs text-zinc-300">
                                         {beat.key}
                                     </span>
                                 )}
+
                                 {beat.has_stems && (
-                                    <span className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs text-emerald-400">
+                                    <span className="rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1 text-xs text-emerald-400">
                                         Stems Included
                                     </span>
                                 )}
+
                                 {duration !== null && (
-                                    <span className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs text-zinc-300">
+                                    <span className="rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1 text-xs text-zinc-300">
                                         {formatDuration(duration)}
                                     </span>
                                 )}
                             </div>
 
-                            {/* Waveform */}
-                            <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-4">
+                            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
                                 <Waveform
                                     url={beat.filename_preview}
                                     isPlaying={isThisPlaying}
                                     onReady={setDuration}
                                 />
+
                                 <div className="mt-3 flex justify-center">
                                     <button
                                         onClick={handlePlayPause}
-                                        className="flex items-center gap-2 px-5 py-2 rounded-full bg-white text-black text-sm font-bold hover:bg-neutral-200 transition-colors"
+                                        className="flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-bold text-black transition-colors hover:bg-neutral-200"
                                     >
                                         {isThisPlaying ? (
-                                            <><Pause size={14} /> Pause</>
+                                            <>
+                                                <Pause size={14} />
+                                                Pause
+                                            </>
                                         ) : (
-                                            <><Play size={14} className="ml-0.5" /> Play Preview</>
+                                            <>
+                                                <Play size={14} className="ml-0.5" />
+                                                Play Preview
+                                            </>
                                         )}
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Pricing */}
-                            <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5 flex flex-col gap-3">
+                            <div className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-5">
                                 {beat.price_lease && (
                                     <div className="flex items-center justify-between">
                                         <div>
@@ -416,9 +424,7 @@ export default function BeatDetailClient({ beat, packTitle, packSlug }: Props) {
                                     </div>
                                 )}
 
-                                {beat.price_lease && beat.price_exclusive && (
-                                    <div className="border-t border-zinc-800" />
-                                )}
+                                {beat.price_lease && beat.price_exclusive && <div className="border-t border-zinc-800" />}
 
                                 {beat.price_exclusive && (
                                     <div className="flex items-center justify-between">
@@ -446,13 +452,12 @@ export default function BeatDetailClient({ beat, packTitle, packSlug }: Props) {
                                 )}
                             </div>
 
-                            {/* Actions */}
                             <div className="flex items-center gap-3">
                                 <button
                                     onClick={() => setModalOpen(true)}
-                                    className={`flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-colors ${inCart
-                                        ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30"
-                                        : "bg-amber-500 text-black hover:bg-amber-400"
+                                    className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold transition-colors ${inCart
+                                            ? "border border-emerald-500/30 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                                            : "bg-amber-500 text-black hover:bg-amber-400"
                                         }`}
                                 >
                                     <ShoppingCart size={15} />
@@ -461,7 +466,6 @@ export default function BeatDetailClient({ beat, packTitle, packSlug }: Props) {
 
                                 <ShareButton beat={beat} />
                             </div>
-
                         </div>
                     </div>
                 </main>
