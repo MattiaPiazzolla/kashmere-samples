@@ -4,6 +4,11 @@
 import { useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 
+type SamplePackRef =
+  | { id: string; title: string; cover_image_url?: string | null }
+  | { id: string; title: string; cover_image_url?: string | null }[]
+  | null
+
 export type Sample = {
   id: string
   title: string
@@ -20,8 +25,7 @@ export type Sample = {
   filename_secure: string | null
   midi_filename_secure: string | null
   created_at: string
-  // Bridge table join — array of packs this sample belongs to
-  sample_packs: { pack_id: string; packs: { id: string; title: string } }[]
+  sample_packs: { pack_id: string; packs: SamplePackRef }[]
 }
 
 type SampleRowProps = {
@@ -35,53 +39,68 @@ export default function SampleRow({ sample, onEdit, onMutate }: SampleRowProps) 
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
+
   const [loadingPublish, setLoadingPublish] = useState(false)
   const [loadingDelete, setLoadingDelete] = useState(false)
 
   async function handlePublishToggle() {
     setLoadingPublish(true)
+
     const { error } = await supabase
       .from('samples')
       .update({ is_published: !sample.is_published })
       .eq('id', sample.id)
+
     if (error) console.error('Publish toggle failed:', error.message)
+
     onMutate()
     setLoadingPublish(false)
   }
 
   async function handleDelete() {
     if (!confirm(`Delete "${sample.title}"? It can be restored later.`)) return
+
     setLoadingDelete(true)
+
     const { error } = await supabase
       .from('samples')
       .update({ is_deleted: true, is_published: false })
       .eq('id', sample.id)
+
     if (error) console.error('Delete failed:', error.message)
+
     onMutate()
     setLoadingDelete(false)
   }
 
   async function handleRestore() {
     setLoadingDelete(true)
+
     const { error } = await supabase
       .from('samples')
       .update({ is_deleted: false })
       .eq('id', sample.id)
+
     if (error) console.error('Restore failed:', error.message)
+
     onMutate()
     setLoadingDelete(false)
   }
 
   const isDeleted = sample.is_deleted
 
-  // Derive pack names from the bridge join
-  const packNames = sample.sample_packs?.map((sp) => sp.packs?.title).filter(Boolean) ?? []
+  const packNames =
+    sample.sample_packs
+      ?.map((sp) => {
+        const pack = Array.isArray(sp.packs) ? sp.packs[0] : sp.packs
+        return pack?.title ?? null
+      })
+      .filter((name): name is string => Boolean(name)) ?? []
 
   return (
     <tr className={`border-b border-neutral-800 text-sm ${isDeleted ? 'opacity-50' : ''}`}>
       <td className="py-3 px-4 text-neutral-100 font-medium">{sample.title}</td>
 
-      {/* Packs column */}
       <td className="py-3 px-4">
         {packNames.length === 0 ? (
           <span className="text-xs text-neutral-600">No pack</span>
@@ -90,7 +109,7 @@ export default function SampleRow({ sample, onEdit, onMutate }: SampleRowProps) 
             {packNames.map((name) => (
               <span
                 key={name}
-                className="text-xs px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300"
+                className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-300"
               >
                 {name}
               </span>
@@ -105,22 +124,26 @@ export default function SampleRow({ sample, onEdit, onMutate }: SampleRowProps) 
           <span className="text-xs text-neutral-600">{sample.subtype}</span>
         </div>
       </td>
+
       <td className="py-3 px-4">
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-neutral-400">{sample.bpm ? `${sample.bpm} BPM` : '—'}</span>
           <span className="text-xs text-neutral-600">{sample.key ?? '—'}</span>
         </div>
       </td>
-      <td className="py-3 px-4 text-neutral-400 text-xs">
+
+      <td className="py-3 px-4 text-xs text-neutral-400">
         {sample.price_individual != null ? `$${sample.price_individual.toFixed(2)}` : 'Pack only'}
       </td>
+
       <td className="py-3 px-4">
         {sample.has_midi && (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-400 font-medium">
+          <span className="rounded-full bg-violet-500/20 px-2 py-0.5 text-xs font-medium text-violet-400">
             MIDI
           </span>
         )}
       </td>
+
       <td className="py-3 px-4">
         <div className="flex items-center gap-2">
           {!isDeleted ? (
@@ -128,23 +151,25 @@ export default function SampleRow({ sample, onEdit, onMutate }: SampleRowProps) 
               <button
                 onClick={handlePublishToggle}
                 disabled={loadingPublish}
-                className={`text-xs px-2 py-1 rounded font-medium transition-colors ${sample.is_published
+                className={`rounded px-2 py-1 text-xs font-medium transition-colors ${sample.is_published
                     ? 'bg-green-600/20 text-green-400 hover:bg-green-600/30'
                     : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
                   }`}
               >
                 {loadingPublish ? '...' : sample.is_published ? 'Published' : 'Draft'}
               </button>
+
               <button
                 onClick={() => onEdit(sample)}
-                className="text-xs px-2 py-1 rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors"
+                className="rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-300 transition-colors hover:bg-neutral-700"
               >
                 Edit
               </button>
+
               <button
                 onClick={handleDelete}
                 disabled={loadingDelete}
-                className="text-xs px-2 py-1 rounded bg-red-900/30 text-red-400 hover:bg-red-900/50 transition-colors"
+                className="rounded bg-red-900/30 px-2 py-1 text-xs text-red-400 transition-colors hover:bg-red-900/50"
               >
                 {loadingDelete ? '...' : 'Delete'}
               </button>
@@ -153,7 +178,7 @@ export default function SampleRow({ sample, onEdit, onMutate }: SampleRowProps) 
             <button
               onClick={handleRestore}
               disabled={loadingDelete}
-              className="text-xs px-2 py-1 rounded bg-amber-600/20 text-amber-400 hover:bg-amber-600/30 transition-colors"
+              className="rounded bg-amber-600/20 px-2 py-1 text-xs text-amber-400 transition-colors hover:bg-amber-600/30"
             >
               {loadingDelete ? '...' : 'Restore'}
             </button>
