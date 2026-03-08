@@ -1,7 +1,7 @@
 // app/(main)/library/LibraryClient.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getSignedDownloadUrl } from "@/app/actions/getSignedDownloadUrl";
 import { getPackDownloadUrls, PackSampleDownload } from "@/app/actions/getPackDownloadUrls";
 
@@ -82,100 +82,242 @@ function CoverImage({ src, title, size = 48 }: { src: string | null; title: stri
     const [err, setErr] = useState(false);
     if (!src || err) {
         return (
-            <div
-                className="flex-shrink-0 bg-neutral-800 flex items-center justify-center"
-                style={{ width: size, height: size }}
-            >
+            <div className="flex-shrink-0 bg-neutral-800 flex items-center justify-center" style={{ width: size, height: size }}>
                 <span className="text-neutral-600 text-[10px] font-black tracking-tighter">K</span>
             </div>
         );
     }
     return (
-        <img
-            src={src}
-            alt={title}
-            width={size}
-            height={size}
-            onError={() => setErr(true)}
-            className="flex-shrink-0 object-cover"
-            style={{ width: size, height: size }}
-        />
+        <img src={src} alt={title} width={size} height={size} onError={() => setErr(true)}
+            className="flex-shrink-0 object-cover" style={{ width: size, height: size }} />
     );
 }
 
-// ─── Pack expanded sample list ────────────────────────────────────────────────
+// ─── Pack Files Sheet Modal ───────────────────────────────────────────────────
 
-function PackSampleList({ samples }: { samples: PackSampleDownload[] }) {
-    const [states, setStates] = useState<Record<string, DownloadState>>({});
+type SheetProps = {
+    item: OrderItem;
+    onClose: () => void;
+};
+
+function PackFilesSheet({ item, onClose }: SheetProps) {
+    const [mounted, setMounted] = useState(false);
+    const [visible, setVisible] = useState(false);
+    const [fetchState, setFetchState] = useState<"loading" | "ready" | "error">("loading");
+    const [samples, setSamples] = useState<PackSampleDownload[]>([]);
+    const [fetchError, setFetchError] = useState<string | null>(null);
+    const [dlStates, setDlStates] = useState<Record<string, DownloadState>>({});
+    const [allState, setAllState] = useState<DownloadState>("idle");
+
+    const title = item.packs?.title ?? "Pack";
+    const cover = coverUrl(item.packs?.cover_image_url ?? null);
+
+    // Mount → trigger slide-up animation
+    useEffect(() => {
+        setMounted(true);
+        requestAnimationFrame(() => setVisible(true));
+    }, []);
+
+    // Lock body scroll
+    useEffect(() => {
+        document.body.style.overflow = "hidden";
+        return () => { document.body.style.overflow = ""; };
+    }, []);
+
+    // Fetch samples on open
+    useEffect(() => {
+        if (!item.pack_id) return;
+        getPackDownloadUrls(item.pack_id).then((result) => {
+            if ("error" in result) {
+                setFetchError(result.error);
+                setFetchState("error");
+            } else {
+                setSamples(result.samples);
+                setFetchState("ready");
+            }
+        });
+    }, [item.pack_id]);
+
+    function handleClose() {
+        setVisible(false);
+        setTimeout(onClose, 320);
+    }
 
     async function downloadSample(sample: PackSampleDownload) {
-        setStates((prev) => ({ ...prev, [sample.sampleId]: "loading" }));
+        setDlStates((prev) => ({ ...prev, [sample.sampleId]: "loading" }));
         const ext = sample.filename.split(".").pop();
         const cleanName = `${sample.title}${ext ? `.${ext}` : ""}`;
         try {
-            const response = await fetch(sample.signedUrl);
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
+            const res = await fetch(sample.signedUrl);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
-            a.href = blobUrl;
-            a.download = cleanName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
-            setStates((prev) => ({ ...prev, [sample.sampleId]: "done" }));
+            a.href = url; a.download = cleanName;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+            setDlStates((prev) => ({ ...prev, [sample.sampleId]: "done" }));
         } catch {
-            setStates((prev) => ({ ...prev, [sample.sampleId]: "error" }));
+            setDlStates((prev) => ({ ...prev, [sample.sampleId]: "error" }));
         }
     }
 
+    async function downloadAll() {
+        setAllState("loading");
+        try {
+            for (const sample of samples) {
+                const ext = sample.filename.split(".").pop();
+                const cleanName = `${sample.title}${ext ? `.${ext}` : ""}`;
+                const res = await fetch(sample.signedUrl);
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url; a.download = cleanName;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                await new Promise((r) => setTimeout(r, 400));
+                URL.revokeObjectURL(url);
+                setDlStates((prev) => ({ ...prev, [sample.sampleId]: "done" }));
+            }
+            setAllState("done");
+        } catch {
+            setAllState("error");
+        }
+    }
+
+    if (!mounted) return null;
+
     return (
-        <div className="mt-2 rounded border border-neutral-800 overflow-hidden">
-            {samples.map((sample, i) => {
-                const state = states[sample.sampleId] ?? "idle";
-                return (
-                    <div
-                        key={sample.sampleId}
-                        className="flex items-center justify-between px-3 py-2.5 hover:bg-neutral-800/40 transition-colors"
-                        style={{ borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
-                    >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span className="text-neutral-600 text-[9px] font-mono w-4 flex-shrink-0">{i + 1}</span>
-                            <span className="text-neutral-300 text-[11px] truncate">{sample.title}</span>
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+            style={{
+                background: visible ? "rgba(0,0,0,0.75)" : "rgba(0,0,0,0)",
+                backdropFilter: visible ? "blur(6px)" : "blur(0px)",
+                transition: "all 0.3s ease"
+            }}
+            onClick={handleClose}
+        >
+            {/* Modal */}
+            <div
+                className="w-full max-w-2xl mx-auto rounded-2xl overflow-hidden shadow-2xl"
+                style={{
+                    background: "#111",
+                    border: "1px solid #2a2a2a",
+                    opacity: visible ? 1 : 0,
+                    transform: visible ? "scale(1) translateY(0)" : "scale(0.96) translateY(16px)",
+                    transition: "all 0.32s cubic-bezier(0.2, 0.9, 0.3, 1)",
+                    maxHeight: "85vh",
+                    display: "flex",
+                    flexDirection: "column",
+                }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Pack header */}
+                <div className="flex items-center gap-4 px-5 py-4 border-b border-neutral-800/60 flex-shrink-0 bg-neutral-900/30">
+                    <CoverImage src={cover} title={title} size={52} />
+                    <div className="flex-1 min-w-0">
+                        <p className="text-white font-black text-base tracking-tighter truncate">{title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                            <TypeBadge kind="pack" />
+                            <LicenseBadge type={item.license_type} />
+                            <span className="text-neutral-600 text-[9px] font-mono">${Number(item.price_paid).toFixed(2)}</span>
                         </div>
+                    </div>
+                    <button
+                        onClick={handleClose}
+                        className="cursor-pointer flex-shrink-0 w-7 h-7 flex items-center justify-center text-neutral-500 hover:text-white transition-colors rounded-full hover:bg-neutral-800"
+                    >
+                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* Sample list — scrollable */}
+                <div className="flex-1 overflow-y-auto">
+                    {fetchState === "loading" && (
+                        <div className="flex items-center justify-center py-16">
+                            <p className="text-neutral-600 text-[10px] uppercase tracking-[0.2em]">Loading files...</p>
+                        </div>
+                    )}
+                    {fetchState === "error" && (
+                        <div className="flex items-center justify-center py-16">
+                            <p className="text-red-700 text-[10px]">{fetchError}</p>
+                        </div>
+                    )}
+                    {fetchState === "ready" && (
+                        <div>
+                            {/* Count row */}
+                            <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-800/40">
+                                <p className="text-neutral-600 text-[10px] uppercase tracking-[0.15em]">
+                                    {samples.length} {samples.length === 1 ? "file" : "files"}
+                                </p>
+                            </div>
+                            {/* Samples */}
+                            {samples.map((sample, i) => {
+                                const state = dlStates[sample.sampleId] ?? "idle";
+                                return (
+                                    <div
+                                        key={sample.sampleId}
+                                        className="flex items-center gap-3 px-5 py-3 hover:bg-neutral-800/30 transition-colors"
+                                        style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                                    >
+                                        <span className="text-neutral-700 text-[10px] font-mono w-5 flex-shrink-0 text-right">{i + 1}</span>
+                                        <span className="text-neutral-200 text-xs flex-1 truncate">{sample.title}</span>
+                                        <button
+                                            onClick={() => downloadSample(sample)}
+                                            disabled={state === "loading" || state === "done"}
+                                            className="cursor-pointer flex-shrink-0 text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 rounded border transition-colors disabled:cursor-not-allowed flex items-center gap-1"
+                                            style={{
+                                                color: state === "done" ? "#2a6e42" : state === "error" ? "#e05c5c" : state === "loading" ? "#333" : "#737373",
+                                                borderColor: state === "done" ? "rgba(42,110,66,0.3)" : state === "error" ? "rgba(224,92,92,0.3)" : "#2a2a2a",
+                                            }}
+                                        >
+                                            {state === "idle" && (
+                                                <>
+                                                    <svg width="9" height="9" fill="currentColor" viewBox="0 0 24 24">
+                                                        <path d="M12 16l-6-6h4V4h4v6h4l-6 6zm-7 4h14v-2H5v2z" />
+                                                    </svg>
+                                                    <span>Save</span>
+                                                </>
+                                            )}
+                                            {state === "loading" && "..."}
+                                            {state === "done" && "✓"}
+                                            {state === "error" && "Retry"}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Sticky footer — Download All */}
+                {fetchState === "ready" && samples.length > 0 && (
+                    <div className="flex-shrink-0 px-5 py-4 border-t border-neutral-800/60" style={{ background: "#111" }}>
                         <button
-                            onClick={() => downloadSample(sample)}
-                            disabled={state === "loading" || state === "done"}
-                            className="flex-shrink-0 ml-3 text-[10px] uppercase tracking-[0.12em] transition-colors duration-200 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1"
+                            onClick={downloadAll}
+                            disabled={allState === "loading" || allState === "done"}
+                            className="cursor-pointer w-full py-3 text-[11px] uppercase tracking-[0.2em] font-black transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
                             style={{
-                                color: state === "idle" ? "#555"
-                                    : state === "loading" ? "#333"
-                                        : state === "done" ? "#2a6e42"
-                                            : "#e05c5c",
+                                background: allState === "done" ? "rgba(42,110,66,0.15)" : "rgba(200,169,110,0.1)",
+                                border: `1px solid ${allState === "done" ? "rgba(42,110,66,0.4)" : "rgba(200,169,110,0.3)"}`,
+                                color: allState === "done" ? "#2a6e42" : "#c8a96e",
                             }}
                         >
-                            {state === "idle" && (
-                                <>
-                                    <svg width="10" height="10" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M12 16l-6-6h4V4h4v6h4l-6 6zm-7 4h14v-2H5v2z" />
-                                    </svg>
-                                    <span>Save</span>
-                                </>
-                            )}
-                            {state === "loading" && "..."}
-                            {state === "done" && "✓ Saved"}
-                            {state === "error" && "Retry"}
+                            {allState === "idle" && `↓ Download All ${samples.length} Files`}
+                            {allState === "loading" && "Downloading..."}
+                            {allState === "done" && "✓ All Files Saved"}
+                            {allState === "error" && "Error — Retry"}
                         </button>
                     </div>
-                );
-            })}
+                )}
+            </div>
         </div>
     );
 }
 
-// ─── Pack download block ──────────────────────────────────────────────────────
+// ─── Compact pack block for list/crates ──────────────────────────────────────
 
-function PackDownloadBlock({ packId, compact = false }: { packId: string; compact?: boolean }) {
+function PackDownloadBlock({ packId, item }: { packId: string; item: OrderItem }) {
     const [zipState, setZipState] = useState<DownloadState>("idle");
     const [expanded, setExpanded] = useState(false);
     const [samples, setSamples] = useState<PackSampleDownload[] | null>(null);
@@ -209,11 +351,8 @@ function PackDownloadBlock({ packId, compact = false }: { packId: string; compac
                 const blob = await response.blob();
                 const blobUrl = URL.createObjectURL(blob);
                 const a = document.createElement("a");
-                a.href = blobUrl;
-                a.download = cleanName;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                a.href = blobUrl; a.download = cleanName;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 await new Promise((r) => setTimeout(r, 400));
                 URL.revokeObjectURL(blobUrl);
             }
@@ -223,93 +362,81 @@ function PackDownloadBlock({ packId, compact = false }: { packId: string; compac
         }
     }
 
-    if (compact) {
-        // Compact mode for list/crates rows — inline buttons
-        return (
-            <div className="flex-shrink-0 flex flex-col items-end gap-2">
-                <div className="flex items-center gap-2">
-                    {samples && (
-                        <button
-                            onClick={downloadAll}
-                            disabled={zipState === "loading" || zipState === "done"}
-                            className="cursor-pointer text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 rounded border transition-colors disabled:cursor-not-allowed"
-                            style={{
-                                color: zipState === "done" ? "#2a6e42" : zipState === "error" ? "#e05c5c" : "#c8a96e",
-                                borderColor: zipState === "done" ? "rgba(42,110,66,0.3)" : zipState === "error" ? "rgba(224,92,92,0.3)" : "rgba(200,169,110,0.2)",
-                                background: "transparent",
-                            }}
-                        >
-                            {zipState === "idle" && "↓ All"}
-                            {zipState === "loading" && "Saving..."}
-                            {zipState === "done" && "✓ Saved"}
-                            {zipState === "error" && "Retry"}
-                        </button>
-                    )}
-                    <button
-                        onClick={loadSamples}
-                        className="cursor-pointer text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 rounded border border-neutral-700 text-neutral-500 hover:text-neutral-200 hover:border-neutral-500 transition-colors flex items-center gap-1"
-                    >
-                        {zipState === "loading" && !expanded ? (
-                            "Loading..."
-                        ) : (
-                            <>
-                                <span>{expanded ? "Hide" : "Files"}</span>
-                                <svg
-                                    width="8" height="8" fill="currentColor" viewBox="0 0 24 24"
-                                    style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
-                                >
-                                    <path d="M7 10l5 5 5-5z" />
-                                </svg>
-                            </>
-                        )}
-                    </button>
-                </div>
-                {loadError && <p className="text-red-700 text-[9px]">{loadError}</p>}
-                {expanded && samples && <PackSampleList samples={samples} />}
-            </div>
-        );
-    }
-
-    // Full mode for grid cards
     return (
-        <div className="w-full flex flex-col gap-2">
-            <button
-                onClick={loadSamples}
-                className="cursor-pointer w-full text-[9px] uppercase tracking-[0.2em] text-neutral-300 border border-neutral-600 px-3 py-1.5 hover:bg-white hover:text-black transition-all duration-200 flex items-center justify-center gap-1.5"
-            >
-                {zipState === "loading" && !expanded ? (
-                    "Loading..."
-                ) : (
-                    <>
-                        <svg
-                            width="8" height="8" fill="currentColor" viewBox="0 0 24 24"
-                            style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
-                        >
-                            <path d="M7 10l5 5 5-5z" />
-                        </svg>
-                        {expanded ? "Hide Files" : "View Files"}
-                    </>
+        <div className="flex-shrink-0 flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+                {samples && (
+                    <button
+                        onClick={downloadAll}
+                        disabled={zipState === "loading" || zipState === "done"}
+                        className="cursor-pointer text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 rounded border transition-colors disabled:cursor-not-allowed"
+                        style={{
+                            color: zipState === "done" ? "#2a6e42" : zipState === "error" ? "#e05c5c" : "#c8a96e",
+                            borderColor: zipState === "done" ? "rgba(42,110,66,0.3)" : zipState === "error" ? "rgba(224,92,92,0.3)" : "rgba(200,169,110,0.2)",
+                            background: "transparent",
+                        }}
+                    >
+                        {zipState === "idle" && "↓ All"}
+                        {zipState === "loading" && "Saving..."}
+                        {zipState === "done" && "✓ Saved"}
+                        {zipState === "error" && "Retry"}
+                    </button>
                 )}
-            </button>
-            {samples && (
                 <button
-                    onClick={downloadAll}
-                    disabled={zipState === "loading" || zipState === "done"}
-                    className="cursor-pointer w-full text-[9px] uppercase tracking-[0.2em] border px-3 py-1.5 transition-all duration-200 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
-                    style={{
-                        color: zipState === "done" ? "#2a6e42" : "#c8a96e",
-                        borderColor: zipState === "done" ? "rgba(42,110,66,0.4)" : "rgba(200,169,110,0.4)",
-                        background: "transparent",
-                    }}
+                    onClick={loadSamples}
+                    className="cursor-pointer text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 rounded border border-neutral-700 text-neutral-500 hover:text-neutral-200 hover:border-neutral-500 transition-colors flex items-center gap-1"
                 >
-                    {zipState === "idle" && "↓ Download All"}
-                    {zipState === "loading" && "Saving..."}
-                    {zipState === "done" && "✓ All Saved"}
-                    {zipState === "error" && "Retry"}
+                    {zipState === "loading" && !expanded ? "Loading..." : (
+                        <>
+                            <span>{expanded ? "Hide" : "Files"}</span>
+                            <svg width="8" height="8" fill="currentColor" viewBox="0 0 24 24"
+                                style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+                                <path d="M7 10l5 5 5-5z" />
+                            </svg>
+                        </>
+                    )}
                 </button>
+            </div>
+            {loadError && <p className="text-red-700 text-[9px]">{loadError}</p>}
+            {expanded && samples && (
+                <div className="w-full mt-1 rounded border border-neutral-800 overflow-hidden">
+                    {samples.map((sample, i) => {
+                        const [dlState, setDlState] = useState<DownloadState>("idle");
+                        async function dl() {
+                            setDlState("loading");
+                            const ext = sample.filename.split(".").pop();
+                            const cleanName = `${sample.title}${ext ? `.${ext}` : ""}`;
+                            try {
+                                const res = await fetch(sample.signedUrl);
+                                const blob = await res.blob();
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement("a");
+                                a.href = url; a.download = cleanName;
+                                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                                setTimeout(() => URL.revokeObjectURL(url), 5000);
+                                setDlState("done");
+                            } catch { setDlState("error"); }
+                        }
+                        return (
+                            <div key={sample.sampleId} className="flex items-center justify-between px-3 py-2.5 hover:bg-neutral-800/40 transition-colors"
+                                style={{ borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <span className="text-neutral-600 text-[9px] font-mono w-4 flex-shrink-0">{i + 1}</span>
+                                    <span className="text-neutral-300 text-[11px] truncate">{sample.title}</span>
+                                </div>
+                                <button onClick={dl} disabled={dlState === "loading" || dlState === "done"}
+                                    className="cursor-pointer flex-shrink-0 ml-3 text-[10px] uppercase tracking-[0.12em] transition-colors disabled:cursor-not-allowed"
+                                    style={{ color: dlState === "idle" ? "#555" : dlState === "loading" ? "#333" : dlState === "done" ? "#2a6e42" : "#e05c5c" }}>
+                                    {dlState === "idle" && "↓"}
+                                    {dlState === "loading" && "..."}
+                                    {dlState === "done" && "✓"}
+                                    {dlState === "error" && "!"}
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
             )}
-            {loadError && <p className="text-red-700 text-[9px] text-center">{loadError}</p>}
-            {expanded && samples && <PackSampleList samples={samples} />}
         </div>
     );
 }
@@ -320,6 +447,7 @@ export default function LibraryClient({ orders }: Props) {
     const [states, setStates] = useState<Record<string, DownloadState>>({});
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [view, setView] = useState<ViewMode>("grid");
+    const [activePackItem, setActivePackItem] = useState<OrderItem | null>(null);
 
     const allItems = orders.flatMap((o) =>
         o.order_items.map((item) => ({ ...item, orderDate: o.created_at, orderId: o.id }))
@@ -327,10 +455,7 @@ export default function LibraryClient({ orders }: Props) {
 
     async function handleBeatDownload(item: OrderItem) {
         const filename = item.beats?.filename_secure ?? null;
-        if (!filename) {
-            setErrors((prev) => ({ ...prev, [item.id]: "No file available." }));
-            return;
-        }
+        if (!filename) { setErrors((prev) => ({ ...prev, [item.id]: "No file available." })); return; }
         setStates((prev) => ({ ...prev, [item.id]: "loading" }));
         setErrors((prev) => ({ ...prev, [item.id]: "" }));
         const title = item.beats?.title ?? "file";
@@ -346,11 +471,8 @@ export default function LibraryClient({ orders }: Props) {
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = blobUrl;
-        a.download = cleanName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        a.href = blobUrl; a.download = cleanName;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
         setStates((prev) => ({ ...prev, [item.id]: "done" }));
     }
@@ -398,31 +520,21 @@ export default function LibraryClient({ orders }: Props) {
           gap: 6px;
         }
         .lib-card:hover .lib-card-overlay { opacity: 1; }
-        .dl-fill {
-          position: absolute;
-          bottom: 0; left: 0;
-          height: 2px;
-          background: #c8a96e;
-          width: 0%;
-        }
+        .dl-fill { position: absolute; bottom: 0; left: 0; height: 2px; background: #c8a96e; width: 0%; }
         .dl-fill.loading { animation: fillBar 1.8s ease-in-out infinite alternate; }
         .dl-fill.done { width: 100%; background: #4a9e6b; }
-        .view-btn {
-          padding: 6px 12px;
-          font-size: 10px;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          border: 1px solid transparent;
-          transition: all 0.2s ease;
-          cursor: pointer;
-          background: transparent;
-        }
+        .view-btn { padding: 6px 12px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; border: 1px solid transparent; transition: all 0.2s ease; cursor: pointer; background: transparent; }
         .view-btn.active { border-color: #333; color: #fff; }
         .view-btn:not(.active) { color: #444; }
         .view-btn:not(.active):hover { color: #888; }
         .lib-list-row { transition: background 0.2s ease; }
         .lib-list-row:hover { background: rgba(255,255,255,0.02); }
       `}</style>
+
+            {/* Pack Files Sheet */}
+            {activePackItem && (
+                <PackFilesSheet item={activePackItem} onClose={() => setActivePackItem(null)} />
+            )}
 
             <div className="min-h-screen bg-neutral-950 px-6 py-20">
                 <div className="max-w-5xl mx-auto">
@@ -458,14 +570,11 @@ export default function LibraryClient({ orders }: Props) {
                                 const cover = coverUrl(item.beats?.cover_image_url ?? item.packs?.cover_image_url ?? null);
 
                                 return (
-                                    <div
-                                        key={item.id}
-                                        className="lib-fade lib-card"
+                                    <div key={item.id} className="lib-fade lib-card"
                                         style={{
                                             animationDelay: `${0.08 + i * 0.04}s`,
                                             borderLeft: isPack ? "2px solid rgba(124,106,247,0.4)" : "2px solid transparent",
-                                        }}
-                                    >
+                                        }}>
                                         <div className="relative aspect-square bg-neutral-900 overflow-hidden">
                                             <CoverImage src={cover} title={title} size={300} />
                                             <div className="lib-card-overlay">
@@ -481,8 +590,16 @@ export default function LibraryClient({ orders }: Props) {
                                                         {state === "error" && "Retry"}
                                                     </button>
                                                 )}
-                                                {isPack && item.pack_id && (
-                                                    <PackDownloadBlock packId={item.pack_id} compact={false} />
+                                                {isPack && (
+                                                    <button
+                                                        onClick={() => setActivePackItem(item)}
+                                                        className="cursor-pointer text-[9px] uppercase tracking-[0.2em] text-white border border-white/30 px-3 py-1.5 hover:bg-white hover:text-black transition-all duration-200 w-full text-center flex items-center justify-center gap-1.5"
+                                                    >
+                                                        <svg width="9" height="9" fill="currentColor" viewBox="0 0 24 24">
+                                                            <path d="M20 6h-2.18c.07-.44.18-.86.18-1a3 3 0 0 0-6 0c0 .14.11.56.18 1H10a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z" />
+                                                        </svg>
+                                                        View Files
+                                                    </button>
                                                 )}
                                             </div>
                                             <div className={`dl-fill ${state === "loading" ? "loading" : state === "done" ? "done" : ""}`} />
@@ -515,14 +632,11 @@ export default function LibraryClient({ orders }: Props) {
                                 const cover = coverUrl(item.beats?.cover_image_url ?? item.packs?.cover_image_url ?? null);
 
                                 return (
-                                    <div
-                                        key={item.id}
-                                        className="lib-fade lib-list-row border-b border-neutral-800/40"
+                                    <div key={item.id} className="lib-fade lib-list-row border-b border-neutral-800/40"
                                         style={{
                                             animationDelay: `${0.08 + i * 0.03}s`,
                                             borderLeft: isPack ? "2px solid rgba(124,106,247,0.4)" : "2px solid transparent",
-                                        }}
-                                    >
+                                        }}>
                                         <div className="flex items-center gap-4 py-3 px-3">
                                             <CoverImage src={cover} title={title} size={44} />
                                             <div className="flex-1 min-w-0">
@@ -533,16 +647,12 @@ export default function LibraryClient({ orders }: Props) {
                                                     <span className="text-neutral-600 text-[9px] font-mono">{formatDate(item.orderDate)}</span>
                                                 </div>
                                             </div>
-                                            <span className="text-neutral-600 text-[10px] font-mono hidden sm:block">
-                                                ${Number(item.price_paid).toFixed(2)}
-                                            </span>
+                                            <span className="text-neutral-600 text-[10px] font-mono hidden sm:block">${Number(item.price_paid).toFixed(2)}</span>
                                             {isBeat && item.beats?.filename_secure && (
-                                                <button
-                                                    onClick={() => handleBeatDownload(item)}
+                                                <button onClick={() => handleBeatDownload(item)}
                                                     disabled={state === "loading" || state === "done"}
                                                     className="cursor-pointer flex-shrink-0 text-[10px] uppercase tracking-[0.15em] transition-colors duration-200 disabled:cursor-not-allowed"
-                                                    style={{ color: state === "idle" ? "#737373" : state === "loading" ? "#404040" : state === "done" ? "#2a6e42" : "#e05c5c" }}
-                                                >
+                                                    style={{ color: state === "idle" ? "#737373" : state === "loading" ? "#404040" : state === "done" ? "#2a6e42" : "#e05c5c" }}>
                                                     {state === "idle" && "Download"}
                                                     {state === "loading" && "Preparing..."}
                                                     {state === "done" && "Saved ✓"}
@@ -550,10 +660,9 @@ export default function LibraryClient({ orders }: Props) {
                                                 </button>
                                             )}
                                             {isPack && item.pack_id && (
-                                                <PackDownloadBlock packId={item.pack_id} compact={true} />
+                                                <PackDownloadBlock packId={item.pack_id} item={item} />
                                             )}
                                         </div>
-                                        {/* Expanded sample list sits below the row */}
                                     </div>
                                 );
                             })}
@@ -593,11 +702,8 @@ export default function LibraryClient({ orders }: Props) {
                                         const cover = coverUrl(item.beats?.cover_image_url ?? item.packs?.cover_image_url ?? null);
 
                                         return (
-                                            <div
-                                                key={item.id}
-                                                className="lib-list-row flex items-center gap-4 py-4 border-b border-neutral-800/30 px-1"
-                                                style={{ borderLeft: isPack ? "2px solid rgba(124,106,247,0.4)" : "2px solid transparent" }}
-                                            >
+                                            <div key={item.id} className="lib-list-row flex items-center gap-4 py-4 border-b border-neutral-800/30 px-1"
+                                                style={{ borderLeft: isPack ? "2px solid rgba(124,106,247,0.4)" : "2px solid transparent" }}>
                                                 <CoverImage src={cover} title={title} size={48} />
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-white text-sm font-black tracking-tighter truncate mb-1">{title}</p>
@@ -609,12 +715,10 @@ export default function LibraryClient({ orders }: Props) {
                                                     {errors[item.id] && <p className="text-red-700 text-[9px] mt-1">{errors[item.id]}</p>}
                                                 </div>
                                                 {isBeat && item.beats?.filename_secure && (
-                                                    <button
-                                                        onClick={() => handleBeatDownload(item)}
+                                                    <button onClick={() => handleBeatDownload(item)}
                                                         disabled={state === "loading" || state === "done"}
                                                         className="cursor-pointer flex-shrink-0 text-[10px] uppercase tracking-[0.15em] transition-colors duration-200 disabled:cursor-not-allowed"
-                                                        style={{ color: state === "idle" ? "#737373" : state === "loading" ? "#404040" : state === "done" ? "#2a6e42" : "#e05c5c" }}
-                                                    >
+                                                        style={{ color: state === "idle" ? "#737373" : state === "loading" ? "#404040" : state === "done" ? "#2a6e42" : "#e05c5c" }}>
                                                         {state === "idle" && "Download"}
                                                         {state === "loading" && "Preparing..."}
                                                         {state === "done" && "Saved ✓"}
@@ -622,7 +726,7 @@ export default function LibraryClient({ orders }: Props) {
                                                     </button>
                                                 )}
                                                 {isPack && item.pack_id && (
-                                                    <PackDownloadBlock packId={item.pack_id} compact={true} />
+                                                    <PackDownloadBlock packId={item.pack_id} item={item} />
                                                 )}
                                             </div>
                                         );
