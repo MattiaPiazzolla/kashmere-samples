@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20',
+  apiVersion: '2026-02-25.clover',
 })
 
 const COVERS_BASE = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/covers`
@@ -36,7 +36,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 })
     }
 
-    // Build Supabase client using @supabase/ssr
     const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,11 +58,12 @@ export async function POST(req: NextRequest) {
       }
     )
 
-    // Get current session (null = guest)
-    const { data: { session } } = await supabase.auth.getSession()
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
     const userId = session?.user?.id ?? null
 
-    // Resolve line items from DB — never trust client prices
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = []
     const cartMeta: object[] = []
 
@@ -116,7 +116,9 @@ export async function POST(req: NextRequest) {
                 beat.bpm ? `${beat.bpm} BPM` : null,
                 beat.key ? `Key: ${beat.key}` : null,
                 'KashmereSamples beat.',
-              ].filter(Boolean).join(' · '),
+              ]
+                .filter(Boolean)
+                .join(' · '),
               images: coverImageUrl(beat.cover_image_url),
             },
           },
@@ -184,7 +186,6 @@ export async function POST(req: NextRequest) {
       },
     }
 
-    // Authenticated users — pre-fill email or reuse Stripe customer
     if (session?.user?.email) {
       sessionParams.customer_email = session.user.email
 
@@ -199,7 +200,6 @@ export async function POST(req: NextRequest) {
         sessionParams.customer = profile.stripe_customer_id
       }
     } else {
-      // Guest — Stripe collects email at checkout
       sessionParams.customer_creation = 'always'
     }
 
