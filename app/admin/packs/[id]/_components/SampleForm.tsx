@@ -12,10 +12,10 @@ const MUSICAL_KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#'
 type SampleFormProps = {
   mode: 'create' | 'edit'
   sample?: Sample | null
-  packId: string           // pre-selected pack when used inside /admin/packs/[id]
+  packId: string
   onSuccess: () => void
   onCancel: () => void
-  packs?: { id: string; title: string }[]  // provided in standalone mode
+  packs?: { id: string; title: string }[]
 }
 
 const inputCls =
@@ -45,8 +45,13 @@ function makeExistingUpload(
   existingUrl: string | null = null
 ): UploadState {
   return {
-    file: null, existingPath, existingUrl,
-    uploading: false, path: null, error: null, localUrl: null,
+    file: null,
+    existingPath,
+    existingUrl,
+    uploading: false,
+    path: null,
+    error: null,
+    localUrl: null,
   }
 }
 
@@ -73,22 +78,36 @@ type FileFieldProps = {
   hint?: string
   kind: 'audio' | 'zip'
   state: UploadState
-  inputRef: React.RefObject<HTMLInputElement>
+  inputRef: React.RefObject<HTMLInputElement | null>
   setter: React.Dispatch<React.SetStateAction<UploadState>>
   required?: boolean
   onFileSelected?: (file: File) => void
 }
 
-function FileField({ label, accept, hint, kind, state, inputRef, setter, required, onFileSelected }: FileFieldProps) {
+function FileField({
+  label,
+  accept,
+  hint,
+  kind,
+  state,
+  inputRef,
+  setter,
+  required,
+  onFileSelected,
+}: FileFieldProps) {
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null
+
     if (state.localUrl) URL.revokeObjectURL(state.localUrl)
+
     if (!file) {
       setter(prev => ({ ...prev, file: null, localUrl: null, path: null, error: null }))
       return
     }
+
     const localUrl = kind === 'audio' ? URL.createObjectURL(file) : null
     setter(prev => ({ ...prev, file, localUrl, path: null, error: null }))
+
     if (onFileSelected) onFileSelected(file)
   }
 
@@ -104,17 +123,23 @@ function FileField({ label, accept, hint, kind, state, inputRef, setter, require
   const existingName = state.existingPath?.split('/').pop() ?? ''
 
   const StatusIcon = () => {
-    if (state.uploading) return (
-      <svg className="w-3 h-3 text-neutral-500 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-      </svg>
-    )
-    if (state.path || hasExisting) return (
-      <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-      </svg>
-    )
+    if (state.uploading) {
+      return (
+        <svg className="w-3 h-3 text-neutral-500 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+        </svg>
+      )
+    }
+
+    if (state.path || hasExisting) {
+      return (
+        <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+      )
+    }
+
     return (
       <svg className="w-3 h-3 text-neutral-600 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
@@ -125,9 +150,11 @@ function FileField({ label, accept, hint, kind, state, inputRef, setter, require
   return (
     <div>
       <label className={labelCls}>
-        {label}{required && <span className="text-red-400 ml-1">*</span>}
+        {label}
+        {required && <span className="text-red-400 ml-1">*</span>}
         {hint && <span className="ml-1.5 normal-case font-normal text-neutral-600">— {hint}</span>}
       </label>
+
       {isEmpty ? (
         <div
           onClick={() => inputRef.current?.click()}
@@ -145,11 +172,13 @@ function FileField({ label, accept, hint, kind, state, inputRef, setter, require
               <audio controls src={state.localUrl} className="w-full h-8" style={{ colorScheme: 'dark' }} />
             </div>
           )}
+
           {kind === 'audio' && hasExisting && state.existingUrl && (
             <div className="px-3 pt-2.5">
               <audio controls src={state.existingUrl} className="w-full h-8" style={{ colorScheme: 'dark' }} />
             </div>
           )}
+
           <div className="px-3 py-2 border-t border-neutral-800 flex items-center gap-2">
             <StatusIcon />
             <span className="text-xs text-neutral-300 truncate flex-1 min-w-0">
@@ -160,21 +189,28 @@ function FileField({ label, accept, hint, kind, state, inputRef, setter, require
             )}
             {hasExisting && <span className="text-xs text-emerald-400 shrink-0">Current</span>}
           </div>
+
           <div className="px-3 pb-2 flex items-center gap-3 border-t border-neutral-800/60">
             {state.uploading ? (
               <span className="text-xs text-neutral-500">Uploading…</span>
             ) : (
               <>
                 {state.path && <span className="text-xs text-emerald-400 mr-auto">Uploaded ✓</span>}
-                <button type="button" onClick={() => inputRef.current?.click()}
-                  className="text-xs text-neutral-500 hover:text-neutral-200 transition py-1">
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  className="text-xs text-neutral-500 hover:text-neutral-200 transition py-1"
+                >
                   Replace
                 </button>
                 {hasNewFile && (
                   <>
                     <span className="text-neutral-700 text-xs">·</span>
-                    <button type="button" onClick={handleRemove}
-                      className="text-xs text-neutral-500 hover:text-red-400 transition py-1">
+                    <button
+                      type="button"
+                      onClick={handleRemove}
+                      className="text-xs text-neutral-500 hover:text-red-400 transition py-1"
+                    >
                       Remove
                     </button>
                   </>
@@ -184,13 +220,12 @@ function FileField({ label, accept, hint, kind, state, inputRef, setter, require
           </div>
         </div>
       )}
+
       {state.error && <p className="text-xs text-red-400 mt-1">{state.error}</p>}
       <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={handleChange} />
     </div>
   )
 }
-
-// ─── Multi-pack pill toggle selector ──────────────────────────────────────────
 
 function PackSelector({
   packs,
@@ -231,8 +266,6 @@ function PackSelector({
   )
 }
 
-// ─── Main form ─────────────────────────────────────────────────────────────────
-
 export default function SampleForm({ mode, sample, packId, onSuccess, onCancel, packs }: SampleFormProps) {
   const isEdit = mode === 'edit'
 
@@ -241,7 +274,6 @@ export default function SampleForm({ mode, sample, packId, onSuccess, onCancel, 
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // Pre-populate from existing sample_packs on edit, or current packId on create
   const initialPackIds: string[] = isEdit
     ? (sample?.sample_packs?.map(sp => sp.pack_id) ?? [])
     : packId
@@ -270,29 +302,34 @@ export default function SampleForm({ mode, sample, packId, onSuccess, onCancel, 
     makeExistingUpload(sample?.midi_filename_secure ?? null)
   )
 
-  const previewRef = useRef<HTMLInputElement>(null)
-  const secureRef = useRef<HTMLInputElement>(null)
-  const midiRef = useRef<HTMLInputElement>(null)
+  const previewRef = useRef<HTMLInputElement | null>(null)
+  const secureRef = useRef<HTMLInputElement | null>(null)
+  const midiRef = useRef<HTMLInputElement | null>(null)
 
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isEdit) return
+
     async function resolveUrls() {
       if (sample?.filename_preview) {
         const { data } = await supabase.storage
           .from('public-previews')
           .createSignedUrl(sample.filename_preview, 3600)
+
         if (data) setPreview(prev => ({ ...prev, existingUrl: data.signedUrl }))
       }
+
       if (sample?.filename_secure) {
         const { data } = await supabase.storage
           .from('secure-assets')
           .createSignedUrl(sample.filename_secure, 3600)
+
         if (data) setSecure(prev => ({ ...prev, existingUrl: data.signedUrl }))
       }
     }
+
     resolveUrls()
   }, [isEdit, sample, supabase])
 
@@ -311,13 +348,17 @@ export default function SampleForm({ mode, sample, packId, onSuccess, onCancel, 
     setter: React.Dispatch<React.SetStateAction<UploadState>>
   ): Promise<string | null> {
     const ext = file.name.split('.').pop()
-    const filename = pathPrefix + '/' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + ext
+    const filename = `${pathPrefix}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+
     setter(prev => ({ ...prev, uploading: true, error: null }))
+
     const { error } = await supabase.storage.from(bucket).upload(filename, file, { upsert: false })
+
     if (error) {
       setter(prev => ({ ...prev, uploading: false, error: error.message }))
       return null
     }
+
     setter(prev => ({ ...prev, uploading: false, path: filename }))
     return filename
   }
@@ -342,15 +383,16 @@ export default function SampleForm({ mode, sample, packId, onSuccess, onCancel, 
     if (hasMidi && !midi.file && !midi.existingPath) return setFormError('MIDI file is required.')
 
     setSaving(true)
+
     try {
       const slug = slugify(title) || 'sample'
       const storagePath = selectedPackIds[0]
 
       const [previewPath, securePath, midiPath] = await Promise.all([
-        resolveFile(preview, 'public-previews', storagePath + '/' + slug, setPreview),
-        resolveFile(secure, 'secure-assets', storagePath + '/' + slug, setSecure),
+        resolveFile(preview, 'public-previews', `${storagePath}/${slug}`, setPreview),
+        resolveFile(secure, 'secure-assets', `${storagePath}/${slug}`, setSecure),
         hasMidi
-          ? resolveFile(midi, 'secure-assets', storagePath + '/' + slug + '/midi', setMidi)
+          ? resolveFile(midi, 'secure-assets', `${storagePath}/${slug}/midi`, setMidi)
           : Promise.resolve(null),
       ])
 
@@ -377,35 +419,35 @@ export default function SampleForm({ mode, sample, packId, onSuccess, onCancel, 
       let sampleId: string
 
       if (isEdit) {
-        // 1. Update sample fields
         const { error } = await supabase
           .from('samples')
           .update(payload)
           .eq('id', sample!.id)
+
         if (error) throw new Error(error.message)
         sampleId = sample!.id
 
-        // 2. Delete all existing bridge rows then re-insert
         const { error: delError } = await supabase
           .from('sample_packs')
           .delete()
           .eq('sample_id', sampleId)
+
         if (delError) throw new Error(delError.message)
       } else {
-        // 1. Insert sample (no pack_id column)
         const { data, error } = await supabase
           .from('samples')
           .insert({ ...payload, is_published: false, is_deleted: false })
           .select('id')
           .single()
+
         if (error) throw new Error(error.message)
         sampleId = data.id
       }
 
-      // 3. Insert bridge rows for all selected packs
       const { error: bridgeError } = await supabase
         .from('sample_packs')
         .insert(selectedPackIds.map(pid => ({ sample_id: sampleId, pack_id: pid })))
+
       if (bridgeError) throw new Error(bridgeError.message)
 
       onSuccess()
@@ -415,24 +457,23 @@ export default function SampleForm({ mode, sample, packId, onSuccess, onCancel, 
     }
   }
 
-  // Pack list to display: standalone uses packs prop, inside pack detail shows only that pack
   const packList = packs ?? (packId ? [{ id: packId, title: 'Current pack' }] : [])
 
   return (
     <div className="space-y-4">
-
-      {/* Pack selector */}
       {packList.length > 0 && (
         <div>
           <label className={labelCls}>
             Packs <span className="text-red-400">*</span>
             <span className="ml-1.5 normal-case font-normal text-neutral-600">— select one or more</span>
           </label>
+
           <PackSelector
             packs={packList}
             selected={selectedPackIds}
             onChange={setSelectedPackIds}
           />
+
           {selectedPackIds.length === 0 && (
             <p className="text-xs text-neutral-600 mt-1">No pack selected.</p>
           )}
@@ -442,9 +483,11 @@ export default function SampleForm({ mode, sample, packId, onSuccess, onCancel, 
       <div>
         <label className={labelCls}>Title <span className="text-red-400">*</span></label>
         <input
-          type="text" value={title}
+          type="text"
+          value={title}
           onChange={e => setTitle(e.target.value)}
-          placeholder="Dark Hi-Hat Loop" className={inputCls}
+          placeholder="Dark Hi-Hat Loop"
+          className={inputCls}
         />
       </div>
 
@@ -453,24 +496,39 @@ export default function SampleForm({ mode, sample, packId, onSuccess, onCancel, 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelCls}>Type</label>
-          <select value={type} onChange={e => setType(e.target.value as typeof SAMPLE_TYPES[number])} className={inputCls}>
+          <select
+            value={type}
+            onChange={e => setType(e.target.value as typeof SAMPLE_TYPES[number])}
+            className={inputCls}
+          >
             {SAMPLE_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
           </select>
         </div>
+
         <div>
           <label className={labelCls}>Subtype</label>
-          <select value={subtype} onChange={e => setSubtype(e.target.value as typeof SAMPLE_SUBTYPES[number])} className={inputCls}>
+          <select
+            value={subtype}
+            onChange={e => setSubtype(e.target.value as typeof SAMPLE_SUBTYPES[number])}
+            className={inputCls}
+          >
             {SAMPLE_SUBTYPES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
+
         <div>
           <label className={labelCls}>BPM</label>
           <input
-            type="number" min={40} max={300} value={bpm}
+            type="number"
+            min={40}
+            max={300}
+            value={bpm}
             onChange={e => setBpm(e.target.value)}
-            placeholder="140" className={inputCls}
+            placeholder="140"
+            className={inputCls}
           />
         </div>
+
         <div>
           <label className={labelCls}>Key</label>
           <select value={key} onChange={e => setKey(e.target.value)} className={inputCls}>
@@ -489,17 +547,29 @@ export default function SampleForm({ mode, sample, packId, onSuccess, onCancel, 
             )}
           </label>
           <input
-            type="number" min={0} step={0.01} value={durationSec}
-            onChange={e => { setDurationSec(e.target.value); setDurationAuto(false) }}
-            placeholder="Auto from secure file" className={inputCls}
+            type="number"
+            min={0}
+            step={0.01}
+            value={durationSec}
+            onChange={e => {
+              setDurationSec(e.target.value)
+              setDurationAuto(false)
+            }}
+            placeholder="Auto from secure file"
+            className={inputCls}
           />
         </div>
+
         <div>
           <label className={labelCls}>Individual Price ($)</label>
           <input
-            type="number" min={0} step={0.01} value={priceIndividual}
+            type="number"
+            min={0}
+            step={0.01}
+            value={priceIndividual}
             onChange={e => setPriceIndividual(e.target.value)}
-            placeholder="Pack only" className={inputCls}
+            placeholder="Pack only"
+            className={inputCls}
           />
         </div>
       </div>
@@ -508,12 +578,24 @@ export default function SampleForm({ mode, sample, packId, onSuccess, onCancel, 
 
       <div className="grid grid-cols-2 gap-3">
         <FileField
-          label="Preview" accept=".mp3,audio/mpeg" kind="audio" hint="Watermarked MP3"
-          state={preview} inputRef={previewRef} setter={setPreview} required={!isEdit}
+          label="Preview"
+          accept=".mp3,audio/mpeg"
+          kind="audio"
+          hint="Watermarked MP3"
+          state={preview}
+          inputRef={previewRef}
+          setter={setPreview}
+          required={!isEdit}
         />
         <FileField
-          label="Secure File" accept=".wav,.mp3,audio/*" kind="audio" hint="Full quality"
-          state={secure} inputRef={secureRef} setter={setSecure} required={!isEdit}
+          label="Secure File"
+          accept=".wav,.mp3,audio/*"
+          kind="audio"
+          hint="Full quality"
+          state={secure}
+          inputRef={secureRef}
+          setter={setSecure}
+          required={!isEdit}
           onFileSelected={handleSecureFileSelected}
         />
       </div>
@@ -528,11 +610,18 @@ export default function SampleForm({ mode, sample, packId, onSuccess, onCancel, 
           </div>
           <span className="text-xs text-neutral-400 whitespace-nowrap">Has MIDI</span>
         </label>
+
         {hasMidi && (
           <div className="flex-1">
             <FileField
-              label="MIDI File" accept=".mid,.midi" kind="zip" hint=".mid / .midi"
-              state={midi} inputRef={midiRef} setter={setMidi} required={!isEdit}
+              label="MIDI File"
+              accept=".mid,.midi"
+              kind="zip"
+              hint=".mid / .midi"
+              state={midi}
+              inputRef={midiRef}
+              setter={setMidi}
+              required={!isEdit}
             />
           </div>
         )}
@@ -546,19 +635,22 @@ export default function SampleForm({ mode, sample, packId, onSuccess, onCancel, 
 
       <div className="flex items-center gap-3 pt-1">
         <button
-          type="button" onClick={onCancel}
+          type="button"
+          onClick={onCancel}
           className="flex-1 py-2.5 rounded-lg border border-neutral-700 text-neutral-400 text-sm hover:text-neutral-200 hover:border-neutral-500 transition"
         >
           Cancel
         </button>
+
         <button
-          type="button" onClick={handleSubmit} disabled={saving}
+          type="button"
+          onClick={handleSubmit}
+          disabled={saving}
           className="flex-1 py-2.5 bg-white text-neutral-950 text-sm font-bold rounded-lg hover:bg-neutral-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Save Sample (Draft)'}
         </button>
       </div>
-
     </div>
   )
 }
