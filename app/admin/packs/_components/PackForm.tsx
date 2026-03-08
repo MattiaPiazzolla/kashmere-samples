@@ -253,11 +253,13 @@ export default function PackForm({ mode, pack, onSuccess, onCancel }: PackFormPr
   useEffect(() => {
     if (!isEdit || !pack) return
 
+    const packId = pack.id
+
     async function load() {
       const { data } = await supabase
         .from('packs')
         .select('description')
-        .eq('id', pack.id)
+        .eq('id', packId)
         .single()
 
       if (data) setDescription(data.description ?? '')
@@ -265,7 +267,7 @@ export default function PackForm({ mode, pack, onSuccess, onCancel }: PackFormPr
       const { data: cd } = await supabase
         .from('packs_collaborators')
         .select('collaborator_id, role, split_percentage')
-        .eq('pack_id', pack.id)
+        .eq('pack_id', packId)
 
       if (cd) {
         setAssignments(
@@ -368,10 +370,12 @@ export default function PackForm({ mode, pack, onSuccess, onCancel }: PackFormPr
         if (error) throw new Error(error.message)
         packId = data.id
       } else {
+        if (!pack?.id) throw new Error('Pack id is missing.')
+
         const { error } = await supabase
           .from('packs')
           .update(packPayload)
-          .eq('id', pack!.id)
+          .eq('id', pack.id)
 
         if (error) throw new Error(error.message)
       }
