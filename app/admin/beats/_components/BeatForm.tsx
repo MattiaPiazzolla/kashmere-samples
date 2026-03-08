@@ -36,14 +36,15 @@ export type BeatInitialData = {
     filename_preview: string | null
     filename_secure: string | null
     stems_filename_secure: string | null
-    // Resolved preview URLs (generated before modal opens)
     preview_cover_url: string | null
     preview_mp3_url: string | null
     preview_wav_url: string | null
 }
 
 function slugify(text: string) {
-    return text.toLowerCase().trim()
+    return text
+        .toLowerCase()
+        .trim()
         .replace(/[^a-z0-9\s-]/g, '')
         .replace(/\s+/g, '-')
         .replace(/-+/g, '-')
@@ -52,7 +53,7 @@ function slugify(text: string) {
 type UploadState = {
     file: File | null
     existingPath: string | null
-    existingUrl: string | null  // resolved public/signed URL for preview
+    existingUrl: string | null
     uploading: boolean
     path: string | null
     error: string | null
@@ -61,22 +62,18 @@ type UploadState = {
 
 function makeExistingUpload(existingPath: string | null, existingUrl: string | null = null): UploadState {
     return {
-        file: null, existingPath, existingUrl, uploading: false,
-        path: null, error: null, localUrl: null,
+        file: null,
+        existingPath,
+        existingUrl,
+        uploading: false,
+        path: null,
+        error: null,
+        localUrl: null,
     }
 }
 
-const DEFAULT_UPLOAD: UploadState = {
-    file: null, existingPath: null, existingUrl: null, uploading: false,
-    path: null, error: null, localUrl: null,
-}
-
-function formatBytes(bytes: number) {
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-const inputCls = 'w-full px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700 text-neutral-100 text-sm placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition'
+const inputCls =
+    'w-full px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700 text-neutral-100 text-sm placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition'
 const labelCls = 'block text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1'
 
 // ── FileField ─────────────────────────────────────────────────────
@@ -86,22 +83,26 @@ type FileFieldProps = {
     hint?: string
     kind: 'image' | 'audio' | 'zip'
     state: UploadState
-    inputRef: React.RefObject<HTMLInputElement>
+    inputRef: React.RefObject<HTMLInputElement | null>
     setter: React.Dispatch<React.SetStateAction<UploadState>>
     required?: boolean
 }
 
 function FileField({ label, accept, hint, kind, state, inputRef, setter, required }: FileFieldProps) {
-
     function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0] ?? null
+
         if (state.localUrl) URL.revokeObjectURL(state.localUrl)
+
         if (!file) {
             setter(prev => ({ ...prev, file: null, localUrl: null, path: null, error: null }))
             return
         }
+
         const localUrl = kind === 'image' || kind === 'audio'
-            ? URL.createObjectURL(file) : null
+            ? URL.createObjectURL(file)
+            : null
+
         setter(prev => ({ ...prev, file, localUrl, path: null, error: null }))
     }
 
@@ -118,17 +119,23 @@ function FileField({ label, accept, hint, kind, state, inputRef, setter, require
     const existingName = state.existingPath?.split('/').pop() ?? ''
 
     const StatusIcon = () => {
-        if (state.uploading) return (
-            <svg className="w-3 h-3 text-neutral-500 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-            </svg>
-        )
-        if (state.path || hasExisting) return (
-            <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            </svg>
-        )
+        if (state.uploading) {
+            return (
+                <svg className="w-3 h-3 text-neutral-500 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+            )
+        }
+
+        if (state.path || hasExisting) {
+            return (
+                <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+            )
+        }
+
         return (
             <svg className="w-3 h-3 text-neutral-600 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
@@ -139,7 +146,8 @@ function FileField({ label, accept, hint, kind, state, inputRef, setter, require
     return (
         <div>
             <label className={labelCls}>
-                {label}{required && <span className="text-red-400 ml-1">*</span>}
+                {label}
+                {required && <span className="text-red-400 ml-1">*</span>}
                 {hint && <span className="ml-1.5 normal-case font-normal text-neutral-600">— {hint}</span>}
             </label>
 
@@ -155,15 +163,12 @@ function FileField({ label, accept, hint, kind, state, inputRef, setter, require
                 </div>
             ) : (
                 <div className="rounded-lg border border-neutral-700 bg-neutral-900 overflow-hidden">
-
-                    {/* Image — new file local preview */}
                     {kind === 'image' && hasNewFile && state.localUrl && (
                         <div className="aspect-square w-full overflow-hidden">
                             <img src={state.localUrl} alt="Cover" className="w-full h-full object-cover" />
                         </div>
                     )}
 
-                    {/* Image — existing: real preview if URL available, else placeholder */}
                     {kind === 'image' && hasExisting && (
                         <div className="aspect-square w-full overflow-hidden bg-neutral-800">
                             {state.existingUrl ? (
@@ -181,21 +186,18 @@ function FileField({ label, accept, hint, kind, state, inputRef, setter, require
                         </div>
                     )}
 
-                    {/* Audio — new file local preview */}
                     {kind === 'audio' && hasNewFile && state.localUrl && (
                         <div className="px-3 pt-2.5">
                             <audio controls src={state.localUrl} className="w-full h-8" style={{ colorScheme: 'dark' }} />
                         </div>
                     )}
 
-                    {/* Audio — existing: playable if signed URL available */}
                     {kind === 'audio' && hasExisting && state.existingUrl && (
                         <div className="px-3 pt-2.5">
                             <audio controls src={state.existingUrl} className="w-full h-8" style={{ colorScheme: 'dark' }} />
                         </div>
                     )}
 
-                    {/* File info row */}
                     <div className="px-3 py-2 border-t border-neutral-800 flex items-center gap-2">
                         <StatusIcon />
                         <span className="text-xs text-neutral-300 truncate flex-1 min-w-0">
@@ -211,22 +213,27 @@ function FileField({ label, accept, hint, kind, state, inputRef, setter, require
                         )}
                     </div>
 
-                    {/* Actions row */}
                     <div className="px-3 pb-2 flex items-center gap-3 border-t border-neutral-800/60">
                         {state.uploading ? (
                             <span className="text-xs text-neutral-500">Uploading…</span>
                         ) : (
                             <>
                                 {state.path && <span className="text-xs text-emerald-400 mr-auto">Uploaded ✓</span>}
-                                <button type="button" onClick={() => inputRef.current?.click()}
-                                    className="text-xs text-neutral-500 hover:text-neutral-200 transition py-1">
+                                <button
+                                    type="button"
+                                    onClick={() => inputRef.current?.click()}
+                                    className="text-xs text-neutral-500 hover:text-neutral-200 transition py-1"
+                                >
                                     Replace
                                 </button>
                                 {hasNewFile && (
                                     <>
                                         <span className="text-neutral-700 text-xs">·</span>
-                                        <button type="button" onClick={handleRemove}
-                                            className="text-xs text-neutral-500 hover:text-red-400 transition py-1">
+                                        <button
+                                            type="button"
+                                            onClick={handleRemove}
+                                            className="text-xs text-neutral-500 hover:text-red-400 transition py-1"
+                                        >
                                             Remove
                                         </button>
                                     </>
@@ -234,7 +241,6 @@ function FileField({ label, accept, hint, kind, state, inputRef, setter, require
                             </>
                         )}
                     </div>
-
                 </div>
             )}
 
@@ -242,6 +248,11 @@ function FileField({ label, accept, hint, kind, state, inputRef, setter, require
             <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={handleChange} />
         </div>
     )
+}
+
+function formatBytes(bytes: number) {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 // ── BeatForm ──────────────────────────────────────────────────────
@@ -270,15 +281,23 @@ export default function BeatForm({
     const [saving, setSaving] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
 
-    const [cover, setCover] = useState<UploadState>(makeExistingUpload(initialData?.cover_image_url ?? null, initialData?.preview_cover_url ?? null))
-    const [preview, setPreview] = useState<UploadState>(makeExistingUpload(initialData?.filename_preview ?? null, initialData?.preview_mp3_url ?? null))
-    const [secure, setSecure] = useState<UploadState>(makeExistingUpload(initialData?.filename_secure ?? null, initialData?.preview_wav_url ?? null))
-    const [stems, setStems] = useState<UploadState>(makeExistingUpload(initialData?.stems_filename_secure ?? null, null))
+    const [cover, setCover] = useState<UploadState>(
+        makeExistingUpload(initialData?.cover_image_url ?? null, initialData?.preview_cover_url ?? null)
+    )
+    const [preview, setPreview] = useState<UploadState>(
+        makeExistingUpload(initialData?.filename_preview ?? null, initialData?.preview_mp3_url ?? null)
+    )
+    const [secure, setSecure] = useState<UploadState>(
+        makeExistingUpload(initialData?.filename_secure ?? null, initialData?.preview_wav_url ?? null)
+    )
+    const [stems, setStems] = useState<UploadState>(
+        makeExistingUpload(initialData?.stems_filename_secure ?? null, null)
+    )
 
-    const coverRef = useRef<HTMLInputElement>(null)
-    const previewRef = useRef<HTMLInputElement>(null)
-    const secureRef = useRef<HTMLInputElement>(null)
-    const stemsRef = useRef<HTMLInputElement>(null)
+    const coverRef = useRef<HTMLInputElement | null>(null)
+    const previewRef = useRef<HTMLInputElement | null>(null)
+    const secureRef = useRef<HTMLInputElement | null>(null)
+    const stemsRef = useRef<HTMLInputElement | null>(null)
 
     const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -301,12 +320,16 @@ export default function BeatForm({
     ): Promise<string | null> {
         const ext = file.name.split('.').pop()
         const filename = `${pathPrefix}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+
         setter(prev => ({ ...prev, uploading: true, error: null }))
+
         const { error } = await supabase.storage.from(bucket).upload(filename, file, { upsert: false })
+
         if (error) {
             setter(prev => ({ ...prev, uploading: false, error: error.message }))
             return null
         }
+
         setter(prev => ({ ...prev, uploading: false, path: filename }))
         return filename
     }
@@ -323,18 +346,24 @@ export default function BeatForm({
 
     async function handleSubmit() {
         setFormError(null)
+
         if (!form.title.trim()) return setFormError('Title is required.')
+
         if (!isEdit) {
             if (!cover.file) return setFormError('Cover image is required.')
             if (!preview.file) return setFormError('Preview MP3 is required.')
             if (!secure.file) return setFormError('Secure WAV is required.')
         }
+
         if (form.has_stems && !stems.file && !stems.existingPath) {
             return setFormError('Stems file is required.')
         }
+
         setSaving(true)
+
         try {
             const sp = form.slug || slugify(form.title) || 'beat'
+
             const [coverPath, previewPath, securePath, stemsPath] = await Promise.all([
                 resolveFile(cover, 'covers', sp, setCover),
                 resolveFile(preview, 'public-previews', sp, setPreview),
@@ -343,11 +372,13 @@ export default function BeatForm({
                     ? resolveFile(stems, 'secure-assets', `${sp}/stems`, setStems)
                     : Promise.resolve(null),
             ])
+
             if (!coverPath || !previewPath || !securePath) {
                 setFormError('One or more uploads failed.')
                 setSaving(false)
                 return
             }
+
             const payload = {
                 title: form.title.trim(),
                 bpm: form.bpm ? parseInt(form.bpm) : null,
@@ -363,13 +394,26 @@ export default function BeatForm({
                 has_stems: form.has_stems,
                 stems_filename_secure: stemsPath ?? null,
             }
+
             if (isEdit) {
                 const { error } = await supabase.from('beats').update(payload).eq('id', initialData.id)
-                if (error) { setFormError(error.message); setSaving(false); return }
+                if (error) {
+                    setFormError(error.message)
+                    setSaving(false)
+                    return
+                }
             } else {
-                const { error } = await supabase.from('beats').insert({ ...payload, slug: sp, is_published: false, is_deleted: false })
-                if (error) { setFormError(error.message); setSaving(false); return }
+                const { error } = await supabase
+                    .from('beats')
+                    .insert({ ...payload, slug: sp, is_published: false, is_deleted: false })
+
+                if (error) {
+                    setFormError(error.message)
+                    setSaving(false)
+                    return
+                }
             }
+
             onSuccess()
         } catch {
             setFormError('Unexpected error. Please try again.')
@@ -379,52 +423,93 @@ export default function BeatForm({
 
     return (
         <div className="space-y-4">
-
-            {/* Row 1 — Cover + core fields */}
             <div className="flex gap-4 items-start">
                 <div className="w-40 shrink-0">
                     <FileField
-                        label="Cover" accept="image/*" kind="image" hint="JPG/PNG"
-                        state={cover} inputRef={coverRef} setter={setCover} required={!isEdit}
+                        label="Cover"
+                        accept="image/*"
+                        kind="image"
+                        hint="JPG/PNG"
+                        state={cover}
+                        inputRef={coverRef}
+                        setter={setCover}
+                        required={!isEdit}
                     />
                 </div>
+
                 <div className="flex-1 space-y-3 min-w-0">
                     <div>
-                        <label className={labelCls}>Title <span className="text-red-400">*</span></label>
-                        <input type="text" value={form.title}
+                        <label className={labelCls}>
+                            Title <span className="text-red-400">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={form.title}
                             onChange={e => handleField('title', e.target.value)}
-                            placeholder="Dark Trap Banger" className={inputCls} />
+                            placeholder="Dark Trap Banger"
+                            className={inputCls}
+                        />
                     </div>
+
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className={labelCls}>BPM</label>
-                            <input type="number" value={form.bpm}
+                            <input
+                                type="number"
+                                value={form.bpm}
                                 onChange={e => handleField('bpm', e.target.value)}
-                                placeholder="140" min={40} max={300} className={inputCls} />
+                                placeholder="140"
+                                min={40}
+                                max={300}
+                                className={inputCls}
+                            />
                         </div>
+
                         <div>
                             <label className={labelCls}>Key</label>
-                            <select value={form.key} onChange={e => handleField('key', e.target.value)} className={inputCls}>
+                            <select
+                                value={form.key}
+                                onChange={e => handleField('key', e.target.value)}
+                                className={inputCls}
+                            >
                                 <option value="">—</option>
-                                {MUSICAL_KEYS.map(k => <option key={k} value={k}>{k}</option>)}
+                                {MUSICAL_KEYS.map(k => (
+                                    <option key={k} value={k}>
+                                        {k}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                     </div>
+
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className={labelCls}>Type</label>
-                            <select value={form.type}
+                            <select
+                                value={form.type}
                                 onChange={e => handleField('type', e.target.value as typeof BEAT_TYPES[number])}
-                                className={inputCls}>
-                                {BEAT_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+                                className={inputCls}
+                            >
+                                {BEAT_TYPES.map(t => (
+                                    <option key={t} value={t}>
+                                        {t.replace('_', ' ')}
+                                    </option>
+                                ))}
                             </select>
                         </div>
+
                         <div>
                             <label className={labelCls}>License</label>
-                            <select value={form.license_type}
+                            <select
+                                value={form.license_type}
                                 onChange={e => handleField('license_type', e.target.value as typeof LICENSE_TYPES[number])}
-                                className={inputCls}>
-                                {LICENSE_TYPES.map(l => <option key={l} value={l}>{l.replace('_', ' ')}</option>)}
+                                className={inputCls}
+                            >
+                                {LICENSE_TYPES.map(l => (
+                                    <option key={l} value={l}>
+                                        {l.replace('_', ' ')}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                     </div>
@@ -433,43 +518,73 @@ export default function BeatForm({
 
             <div className="border-t border-neutral-800" />
 
-            {/* Row 2 — Pricing */}
             <div className="grid grid-cols-3 gap-3">
                 <div>
                     <label className={labelCls}>Lease ($)</label>
-                    <input type="number" value={form.price_lease}
+                    <input
+                        type="number"
+                        value={form.price_lease}
                         onChange={e => handleField('price_lease', e.target.value)}
-                        placeholder="29.99" min={0} step={0.01} className={inputCls} />
+                        placeholder="29.99"
+                        min={0}
+                        step={0.01}
+                        className={inputCls}
+                    />
                 </div>
+
                 <div>
                     <label className={labelCls}>Exclusive ($)</label>
-                    <input type="number" value={form.price_exclusive}
+                    <input
+                        type="number"
+                        value={form.price_exclusive}
                         onChange={e => handleField('price_exclusive', e.target.value)}
-                        placeholder="299.99" min={0} step={0.01} className={inputCls} />
+                        placeholder="299.99"
+                        min={0}
+                        step={0.01}
+                        className={inputCls}
+                    />
                 </div>
+
                 <div>
                     <label className={labelCls}>Individual ($)</label>
-                    <input type="number" value={form.price_individual}
+                    <input
+                        type="number"
+                        value={form.price_individual}
                         onChange={e => handleField('price_individual', e.target.value)}
-                        placeholder="9.99" min={0} step={0.01} className={inputCls} />
+                        placeholder="9.99"
+                        min={0}
+                        step={0.01}
+                        className={inputCls}
+                    />
                 </div>
             </div>
 
             <div className="border-t border-neutral-800" />
 
-            {/* Row 3 — Audio uploads */}
             <div className="grid grid-cols-2 gap-3">
                 <FileField
-                    label="Preview MP3" accept=".mp3,audio/mpeg" kind="audio" hint="Watermarked"
-                    state={preview} inputRef={previewRef} setter={setPreview} required={!isEdit}
+                    label="Preview MP3"
+                    accept=".mp3,audio/mpeg"
+                    kind="audio"
+                    hint="Watermarked"
+                    state={preview}
+                    inputRef={previewRef}
+                    setter={setPreview}
+                    required={!isEdit}
                 />
+
                 <FileField
-                    label="Secure WAV" accept=".wav,audio/wav" kind="audio" hint="Full quality"
-                    state={secure} inputRef={secureRef} setter={setSecure} required={!isEdit}
+                    label="Secure WAV"
+                    accept=".wav,audio/wav"
+                    kind="audio"
+                    hint="Full quality"
+                    state={secure}
+                    inputRef={secureRef}
+                    setter={setSecure}
+                    required={!isEdit}
                 />
             </div>
 
-            {/* Row 4 — Stems */}
             <div className="flex items-start gap-4">
                 <label className="flex items-center gap-2 cursor-pointer select-none mt-0.5">
                     <div
@@ -477,16 +592,24 @@ export default function BeatForm({
                         className={`relative w-8 h-4 rounded-full transition-colors shrink-0 ${form.has_stems ? 'bg-white' : 'bg-neutral-700'
                             }`}
                     >
-                        <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-neutral-950 transition-transform ${form.has_stems ? 'translate-x-4' : 'translate-x-0.5'
-                            }`} />
+                        <div
+                            className={`absolute top-0.5 w-3 h-3 rounded-full bg-neutral-950 transition-transform ${form.has_stems ? 'translate-x-4' : 'translate-x-0.5'
+                                }`}
+                        />
                     </div>
                     <span className="text-xs text-neutral-400 whitespace-nowrap">Has stems</span>
                 </label>
+
                 {form.has_stems && (
                     <div className="flex-1">
                         <FileField
-                            label="Stems ZIP" accept=".zip,application/zip" kind="zip"
-                            state={stems} inputRef={stemsRef} setter={setStems} required={!isEdit}
+                            label="Stems ZIP"
+                            accept=".zip,application/zip"
+                            kind="zip"
+                            state={stems}
+                            inputRef={stemsRef}
+                            setter={setStems}
+                            required={!isEdit}
                         />
                     </div>
                 )}
@@ -499,12 +622,12 @@ export default function BeatForm({
             )}
 
             <button
-                onClick={handleSubmit} disabled={saving}
+                onClick={handleSubmit}
+                disabled={saving}
                 className="w-full py-2.5 bg-white text-neutral-950 text-sm font-bold rounded-lg hover:bg-neutral-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Save Beat (Draft)'}
             </button>
-
         </div>
     )
 }
