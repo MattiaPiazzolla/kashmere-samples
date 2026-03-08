@@ -19,9 +19,15 @@ export interface Sample {
     is_deleted: boolean;
     has_midi: boolean;
     filename_preview: string | null;
+    filename_secure: string | null;
+    midi_filename_secure: string | null;
+    created_at: string;
     sample_packs: {
         pack_id: string;
-        packs: { id: string; title: string; cover_image_url: string | null } | { id: string; title: string; cover_image_url: string | null }[] | null
+        packs:
+        | { id: string; title: string; cover_image_url: string | null }
+        | { id: string; title: string; cover_image_url: string | null }[]
+        | null;
     }[];
 }
 
@@ -56,7 +62,7 @@ export default function SamplesTable({
         setModalOpen(true);
     }
 
-    const playableSamples = samples.filter(s => s.filename_preview)
+    const playableSamples = samples.filter((s) => s.filename_preview);
 
     return (
         <section>
@@ -67,9 +73,10 @@ export default function SamplesTable({
                         ({samples.length})
                     </span>
                 </h2>
+
                 <button
                     onClick={openCreate}
-                    className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition-colors"
+                    className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-amber-400"
                 >
                     <Plus size={15} />
                     New Sample
@@ -97,6 +104,7 @@ export default function SamplesTable({
                                 )}
                             </tr>
                         </thead>
+
                         <tbody>
                             {samples.map((sample) => (
                                 <SampleRow
