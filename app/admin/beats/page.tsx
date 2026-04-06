@@ -28,10 +28,17 @@ export default function AdminBeatsPage() {
         price_lease, price_exclusive, price_individual,
         is_published, is_deleted, created_at,
         cover_image_url, filename_preview, filename_secure,
-        stems_filename_secure, has_stems
+        stems_filename_secure, has_stems,
+        beat_tags(tags(name))
       `)
             .order('created_at', { ascending: false })
-        setBeats(data ?? [])
+        const normalizedBeats = (data ?? []).map((beat: any) => ({
+            ...beat,
+            search_tags: (beat.beat_tags ?? [])
+                .map((row: any) => row?.tags?.name)
+                .filter(Boolean),
+        }))
+        setBeats(normalizedBeats)
         setLoading(false)
     }, [])
 

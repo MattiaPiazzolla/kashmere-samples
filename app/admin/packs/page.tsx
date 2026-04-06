@@ -20,11 +20,32 @@ export default function AdminPacksPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("packs")
-      .select("id, title, slug, price_full, license_type, is_published, is_deleted, cover_image_url, created_at")
+      .select(`
+        id, title, slug, price_full, license_type, is_published, is_deleted, cover_image_url, created_at,
+        samples(
+          sample_tags(
+            tags(name)
+          )
+        )
+      `)
       .order("created_at", { ascending: false });
     if (error) { console.error("Failed to fetch packs:", error.message); setLoading(false); return; }
-    setActivePacks((data ?? []).filter((p) => !p.is_deleted));
-    setDeletedPacks((data ?? []).filter((p) => p.is_deleted));
+    const normalizedPacks = (data ?? []).map((pack: any) => {
+      const tagNames = new Set<string>();
+      for (const sample of pack.samples ?? []) {
+        for (const sampleTag of sample.sample_tags ?? []) {
+          const tagName = sampleTag?.tags?.name;
+          if (tagName) tagNames.add(tagName);
+        }
+      }
+
+      return {
+        ...pack,
+        search_tags: Array.from(tagNames),
+      };
+    });
+    setActivePacks(normalizedPacks.filter((p: Pack) => !p.is_deleted));
+    setDeletedPacks(normalizedPacks.filter((p: Pack) => p.is_deleted));
     setLoading(false);
   }, [supabase]);
 

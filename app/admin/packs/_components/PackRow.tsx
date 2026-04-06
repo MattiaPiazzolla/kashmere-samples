@@ -13,6 +13,7 @@ export type Pack = {
     is_deleted: boolean;
     cover_image_url: string | null;
     created_at: string;
+    search_tags?: string[];
 };
 
 type PackRowProps = {

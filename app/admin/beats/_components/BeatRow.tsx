@@ -37,6 +37,7 @@ export type BeatRow = {
     filename_secure: string | null
     stems_filename_secure: string | null
     has_stems: boolean
+    search_tags?: string[]
 }
 
 function toTrack(beat: BeatRow): PlayerTrack {

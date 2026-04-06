@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import BeatCard, { BeatCardData } from "@/components/beats/BeatCard";
 
@@ -24,23 +24,31 @@ const BPM_RANGES = [
 const KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 interface Filters {
+    search: string;
     type: string;
     license: string;
     bpmRange: string;
     key: string;
+    tag: string;
 }
 
 const DEFAULT_FILTERS: Filters = {
+    search: "",
     type: "",
     license: "",
     bpmRange: "",
     key: "",
+    tag: "",
+};
+
+type BeatWithTags = BeatCardData & {
+    search_tags: string[];
 };
 
 export default function BeatsPage() {
     const supabase = createClient();
 
-    const [beats, setBeats] = useState<BeatCardData[]>([]);
+    const [beats, setBeats] = useState<BeatWithTags[]>([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
 
@@ -48,40 +56,71 @@ export default function BeatsPage() {
         const fetchBeats = async () => {
             setLoading(true);
 
-            let query = supabase
+            const { data } = await supabase
                 .from("beats")
                 .select(
-                    "id, title, slug, cover_image_url, bpm, key, type, license_type, price_lease, price_exclusive, price_individual, filename_preview"
+                    "id, title, slug, cover_image_url, bpm, key, type, license_type, price_lease, price_exclusive, price_individual, filename_preview, beat_tags(tags(name))"
                 )
                 .eq("is_published", true)
                 .eq("is_deleted", false)
                 .order("created_at", { ascending: false });
 
-            if (filters.type) query = query.eq("type", filters.type);
-            if (filters.license) query = query.eq("license_type", filters.license);
-            if (filters.key) query = query.eq("key", filters.key);
-
-            if (filters.bpmRange) {
-                const range = BPM_RANGES.find((r) => r.label === filters.bpmRange);
-                if (range) {
-                    query = query.gte("bpm", range.min).lte("bpm", range.max);
-                }
-            }
-
-            const { data } = await query;
-
             // Normalise cover URLs
-            const normalised: BeatCardData[] = (data ?? []).map((b) => ({
+            const normalised: BeatWithTags[] = (data ?? []).map((b: any) => ({
                 ...b,
                 cover_image_url: coverUrl(b.cover_image_url),
-            }))
+                search_tags: (b.beat_tags ?? [])
+                    .map((row: any) => row?.tags?.name)
+                    .filter(Boolean),
+            }));
 
             setBeats(normalised);
             setLoading(false);
         };
 
         fetchBeats();
-    }, [filters]);
+    }, [supabase]);
+
+    const availableTags = useMemo(() => {
+        return Array.from(
+            new Set(beats.flatMap((beat) => beat.search_tags ?? []))
+        ).sort((a, b) => a.localeCompare(b));
+    }, [beats]);
+
+    const filteredBeats = useMemo(() => {
+        const search = filters.search.trim().toLowerCase();
+        const bpmRange = filters.bpmRange
+            ? BPM_RANGES.find((r) => r.label === filters.bpmRange)
+            : null;
+
+        return beats.filter((beat) => {
+            const matchesSearch =
+                search.length === 0 ||
+                beat.title.toLowerCase().includes(search) ||
+                beat.slug.toLowerCase().includes(search) ||
+                (beat.key ?? "").toLowerCase().includes(search) ||
+                beat.type.toLowerCase().includes(search) ||
+                beat.license_type.toLowerCase().includes(search) ||
+                beat.search_tags.some((tag) => tag.toLowerCase().includes(search));
+
+            const matchesType = !filters.type || beat.type === filters.type;
+            const matchesLicense = !filters.license || beat.license_type === filters.license;
+            const matchesKey = !filters.key || beat.key === filters.key;
+            const matchesTag = !filters.tag || beat.search_tags.includes(filters.tag);
+            const matchesBpm =
+                !bpmRange ||
+                (beat.bpm != null && beat.bpm >= bpmRange.min && beat.bpm <= bpmRange.max);
+
+            return (
+                matchesSearch &&
+                matchesType &&
+                matchesLicense &&
+                matchesKey &&
+                matchesTag &&
+                matchesBpm
+            );
+        });
+    }, [beats, filters]);
 
     const setFilter = (key: keyof Filters, value: string) => {
         setFilters((prev) => ({ ...prev, [key]: value }));
@@ -102,6 +141,13 @@ export default function BeatsPage() {
 
             {/* FILTERS */}
             <div className="flex flex-wrap items-center gap-3 mb-10">
+                <input
+                    value={filters.search}
+                    onChange={(e) => setFilter("search", e.target.value)}
+                    placeholder="Search beats or tags..."
+                    className="bg-neutral-800 text-white text-sm px-4 py-2 rounded-full border border-neutral-700 focus:outline-none focus:border-amber-500 transition-colors w-full sm:w-72"
+                />
+
                 <select
                     value={filters.type}
                     onChange={(e) => setFilter("type", e.target.value)}
@@ -151,6 +197,19 @@ export default function BeatsPage() {
                     ))}
                 </select>
 
+                <select
+                    value={filters.tag}
+                    onChange={(e) => setFilter("tag", e.target.value)}
+                    className="bg-neutral-800 text-white text-sm px-4 py-2 rounded-full border border-neutral-700 focus:outline-none focus:border-amber-500 transition-colors"
+                >
+                    <option value="">All Tags</option>
+                    {availableTags.map((tag) => (
+                        <option key={tag} value={tag}>
+                            {tag}
+                        </option>
+                    ))}
+                </select>
+
                 {hasActiveFilters && (
                     <button
                         onClick={() => setFilters(DEFAULT_FILTERS)}
@@ -167,11 +226,11 @@ export default function BeatsPage() {
                     {Array.from({ length: 6 }).map((_, i) => (
                         <div
                             key={i}
-                            className="animate-pulse rounded-2xl bg-zinc-800/50 aspect-[3/4]"
+                            className="animate-pulse rounded-2xl bg-zinc-800/50 aspect-3/4"
                         />
                     ))}
                 </div>
-            ) : beats.length === 0 ? (
+            ) : filteredBeats.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-32 text-center">
                     <p className="text-neutral-500 text-lg mb-2">
                         {hasActiveFilters
@@ -194,11 +253,11 @@ export default function BeatsPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {beats.map((beat) => (
+                    {filteredBeats.map((beat) => (
                         <BeatCard
                             key={beat.id}
                             beat={beat}
-                            allBeats={beats}
+                            allBeats={filteredBeats}
                             previewBaseUrl={PREVIEWS_BASE}
                         />
                     ))}
