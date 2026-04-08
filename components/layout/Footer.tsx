@@ -167,10 +167,20 @@ export default function Footer() {
                 </div>
 
                 {/* BOTTOM BAR */}
-                <div className="border-t border-neutral-800/50 mt-14 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2">
+                <div className="border-t border-neutral-800/50 mt-14 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <p className="text-neutral-700 text-[11px] tracking-wide">
                         © {new Date().getFullYear()} KashmereSamples — All rights reserved.
                     </p>
+                    
+                    {/* Decorative format details */}
+                    <div className="hidden lg:flex items-center gap-4 text-[9px] font-mono text-neutral-600 uppercase tracking-widest">
+                       <span>Rate: 44.1kHz</span>
+                       <span className="w-1 h-1 rounded-full bg-neutral-800"></span>
+                       <span>Depth: 24-Bit</span>
+                       <span className="w-1 h-1 rounded-full bg-neutral-800"></span>
+                       <span>WAV / MP3 / STEMS</span>
+                    </div>
+
                     <p className="text-neutral-800 text-[11px] tracking-wider uppercase">
                         Made for producers
                     </p>

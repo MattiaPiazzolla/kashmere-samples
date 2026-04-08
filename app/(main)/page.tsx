@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import BeatRow from '@/components/beats/BeatRow'
 import type { BeatCardData } from '@/components/beats/BeatCard'
 import Link from 'next/link'
+import SoundWave from '@/components/ui/SoundWave'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const COVERS_BASE = `${SUPABASE_URL}/storage/v1/object/public/covers`
@@ -39,7 +40,31 @@ export default async function HomePage() {
   }))
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen relative">
+
+      {/* Decorative Left Side UI */}
+      <div className="fixed left-6 top-1/2 -translate-y-1/2 hidden xl:flex flex-col items-center gap-2 text-[10px] font-mono text-neutral-500 opacity-20 select-none z-0">
+        <span>+6</span>
+        <div className="w-[1px] h-6 bg-neutral-800"></div>
+        <span>0</span>
+        <div className="w-[1px] h-6 bg-amber-500/50"></div>
+        <span>-6</span>
+        <div className="w-[1px] h-6 bg-neutral-800"></div>
+        <span>-12</span>
+        <div className="w-[1px] h-6 bg-neutral-800"></div>
+        <span>-24</span>
+        <div className="mt-4 rotate-180 tracking-widest" style={{ writingMode: 'vertical-rl' }}>L / R MASTER</div>
+      </div>
+
+      {/* Decorative Right Side UI */}
+      <div className="fixed right-6 top-1/2 -translate-y-1/2 hidden xl:flex flex-col items-center gap-4 text-[10px] font-mono text-neutral-500 opacity-20 select-none z-0">
+        <div className="rotate-180 tracking-widest" style={{ writingMode: 'vertical-rl' }}>SYNC: INTERNAL</div>
+        <div className="w-[1px] h-12 bg-neutral-800 my-2"></div>
+        <div className="rotate-180 tracking-[0.2em] font-bold text-neutral-300" style={{ writingMode: 'vertical-rl' }}>120.00 BPM</div>
+        <div className="w-[1px] h-12 bg-neutral-800 my-2"></div>
+        <div className="w-1.5 h-1.5 rounded-full bg-red-600/80 animate-[pulse_2s_ease-in-out_infinite]"></div>
+        <span>REC</span>
+      </div>
 
       {/* HERO */}
       <section className="flex flex-col items-center justify-center text-center px-6 py-32 bg-neutral-950">
@@ -49,10 +74,13 @@ export default async function HomePage() {
             KASHMERE
           </h1>
         </div>
-        <p className="text-neutral-400 text-lg md:text-xl max-w-xl mb-8">
+        <p className="text-neutral-400 text-lg md:text-xl max-w-xl mb-2">
           Premium beats, sample packs, and stems. Built for producers who move different.
         </p>
-        <div className="flex gap-4">
+
+        <SoundWave />
+
+        <div className="flex gap-4 mt-4">
           <Link
             href="/beats"
             className="bg-white text-black font-bold px-6 py-3 rounded-full hover:bg-neutral-200 transition"
