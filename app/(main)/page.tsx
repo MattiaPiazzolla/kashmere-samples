@@ -43,9 +43,12 @@ export default async function HomePage() {
 
       {/* HERO */}
       <section className="flex flex-col items-center justify-center text-center px-6 py-32 bg-neutral-950">
-        <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-4">
-          KASHMERE
-        </h1>
+        <div className="flex items-center justify-center gap-4 mb-4">
+          <img src="/logo.svg" alt="Kashmere Logo" className="w-12 h-12 md:w-16 md:h-16" />
+          <h1 className="text-5xl md:text-7xl font-black tracking-tight">
+            KASHMERE
+          </h1>
+        </div>
         <p className="text-neutral-400 text-lg md:text-xl max-w-xl mb-8">
           Premium beats, sample packs, and stems. Built for producers who move different.
         </p>

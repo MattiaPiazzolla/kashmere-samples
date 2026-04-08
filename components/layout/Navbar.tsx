@@ -167,6 +167,7 @@ export default function Navbar() {
 
                     {/* LOGO */}
                     <Link href="/" className="flex items-center gap-2.5 group">
+                        <img src="/logo.svg" alt="Kashmere Logo" className="w-8 h-8" />
                         <span className="text-white font-black text-lg tracking-tighter transition-opacity duration-200 group-hover:opacity-70">
                             KASHMERE
                         </span>
